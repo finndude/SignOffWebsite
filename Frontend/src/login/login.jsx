@@ -1,19 +1,49 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, ShieldCheck } from "lucide-react";
-import "./login.css";
+import { apiFetch } from "../utils/api";
+import "./Login.css";
 
 /**
- * Login screen
+ * Login screen — now wired to the real /auth/login endpoint.
  * Matches the DocFlow login design: logo, welcome copy,
  * email/password fields, primary action, and a footer strip.
  */
 function Login() {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setIsSubmitting(true);
+
+    try {
+      const response = await apiFetch("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setError(data.detail || "Something went wrong. Please try again.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      navigate("/dashboard");
+    } catch (err) {
+      setError("Couldn't reach the server. Please try again.");
+      setIsSubmitting(false);
+    }
+  };
 
   return (
-    <div
-      className="login-page"
-    >
+    <div className="login-page">
       <div className="login-card">
         <div className="login-logo">
           <svg
@@ -48,7 +78,9 @@ function Login() {
         <h1 className="login-title">Welcome back</h1>
         <p className="login-subtitle">Sign in to manage and sign your documents</p>
 
-        <form className="login-form" onSubmit={(e) => e.preventDefault()}>
+        <form className="login-form" onSubmit={handleSubmit}>
+          {error && <p className="login-error">{error}</p>}
+
           <label className="login-label" htmlFor="email">
             Email address
           </label>
@@ -59,6 +91,9 @@ function Login() {
               type="email"
               className="login-input"
               placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
             />
           </div>
 
@@ -72,6 +107,9 @@ function Login() {
               type={showPassword ? "text" : "password"}
               className="login-input"
               placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
             />
             <button
               type="button"
@@ -87,8 +125,8 @@ function Login() {
             </button>
           </div>
 
-          <button type="submit" className="login-button">
-            Log In
+          <button type="submit" className="login-button" disabled={isSubmitting}>
+            {isSubmitting ? "Logging in…" : "Log In"}
           </button>
         </form>
 

@@ -1,6 +1,7 @@
 # === Web framework ===
 fastapi
 uvicorn[standard]
+pydantic[email]
 
 # === Database ===
 sqlalchemy
@@ -10,6 +11,7 @@ alembic
 # === Auth ===
 python-jose[cryptography]
 passlib[bcrypt]
+bcrypt==4.0.1
 
 # === PDF handling ===
 pypdf

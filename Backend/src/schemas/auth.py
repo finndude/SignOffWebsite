@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr
+from uuid import UUID
 
 
 class LoginRequest(BaseModel):
@@ -7,7 +8,7 @@ class LoginRequest(BaseModel):
 
 
 class UserResponse(BaseModel):
-    id: str
+    id: UUID
     name: str
     email: str
     role: str
