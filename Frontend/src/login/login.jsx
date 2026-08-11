@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { apiFetch } from "../utils/api";
-import "./Login.css";
+import "./login.css";
 
 /**
  * Login screen — now wired to the real /auth/login endpoint.
