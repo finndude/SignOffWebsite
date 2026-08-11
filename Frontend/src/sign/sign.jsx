@@ -24,17 +24,9 @@ function Sign() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [alreadySigned, setAlreadySigned] = useState(false);
 
-  // New signing state
   const [signatureDataUrl, setSignatureDataUrl] = useState("");
+  const [signaturePositions, setSignaturePositions] = useState([]);
   const [isPlacingSignature, setIsPlacingSignature] = useState(false);
-
-  const [signaturePosition, setSignaturePosition] = useState({
-    page_number: 0,
-    x: 100,
-    y: 100,
-    width: 180,
-    height: 70,
-  });
 
   // Load the assignment to find this document's filename + signed state.
   useEffect(() => {
@@ -102,6 +94,41 @@ function Sign() {
 
     setSignatureDataUrl(dataUrl);
     setIsPlacingSignature(true);
+  };
+
+  const handleSignatureUploaded = (dataUrl) => {
+    setSignatureDataUrl(dataUrl);
+    setIsPlacingSignature(true);
+  };
+
+  const handleAddSignature = (pageNumber) => {
+    setSignaturePositions((current) => [
+      ...current,
+      {
+        id: crypto.randomUUID(),
+        page_number: pageNumber,
+        x: 100,
+        y: 100,
+        width: 180,
+        height: 70,
+      },
+    ]);
+  };
+
+  const handleSignaturePositionChange = (id, position) => {
+    setSignaturePositions((current) =>
+      current.map((signature) =>
+        signature.id === id
+          ? { ...signature, ...position }
+          : signature
+      )
+    );
+  };
+
+  const handleRemoveSignature = (id) => {
+    setSignaturePositions((current) =>
+      current.filter((signature) => signature.id !== id)
+    );
   };
 
   // Final stage: send the signature + position to the backend.
@@ -195,8 +222,10 @@ function Sign() {
             <PdfViewer
               fileUrl={fileUrl}
               signatureDataUrl={signatureDataUrl}
-              signaturePosition={signaturePosition}
-              onSignaturePositionChange={setSignaturePosition}
+              signaturePositions={signaturePositions}
+              onSignaturePositionChange={handleSignaturePositionChange}
+              onAddSignature={handleAddSignature}
+              onRemoveSignature={handleRemoveSignature}
               enableSignaturePlacement={isPlacingSignature}
             />
 
