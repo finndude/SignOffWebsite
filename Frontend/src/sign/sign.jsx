@@ -110,11 +110,17 @@ function Sign() {
         y: 100,
         width: 180,
         height: 70,
+        page_width: 0,
+        page_height: 0,
       },
     ]);
   };
 
-  const handleAddSignature = (pageNumber) => {
+  const handleAddSignature = (
+    pageNumber,
+    pageWidth,
+    pageHeight
+  ) => {
     setSignaturePositions((current) => [
       ...current,
       {
@@ -124,8 +130,8 @@ function Sign() {
         y: 100,
         width: 180,
         height: 70,
-        page_width: 0,
-        page_height: 0,
+        page_width: pageWidth,
+        page_height: pageHeight,
       },
     ]);
   };
@@ -183,12 +189,13 @@ function Sign() {
             signature_data_url: signatureDataUrl,
             signatures: signaturePositions.map(
               (signature) => ({
-                page_number:
-                  signature.page_number,
+                page_number: signature.page_number,
                 x: signature.x,
                 y: signature.y,
                 width: signature.width,
                 height: signature.height,
+                page_width: signature.page_width,
+                page_height: signature.page_height,
               })
             ),
           }),

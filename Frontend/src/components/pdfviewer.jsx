@@ -160,6 +160,42 @@ function PdfViewer({
   }, [currentPage, numPages]);
 
   /*
+   * Store the actual rendered PDF page dimensions on signatures.
+  */
+  useEffect(() => {
+    if (
+      renderedPageSize.width <= 0 ||
+      renderedPageSize.height <= 0 ||
+      !onSignaturePositionChange
+    ) {
+      return;
+    }
+
+    signaturePositions.forEach((signature) => {
+      if (
+        signature.page_number === currentPage - 1 &&
+        (
+          !signature.page_width ||
+          !signature.page_height
+        )
+      ) {
+        onSignaturePositionChange(
+          signature.id,
+          {
+            page_width: renderedPageSize.width,
+            page_height: renderedPageSize.height,
+          }
+        );
+      }
+    });
+  }, [
+    renderedPageSize,
+    currentPage,
+    signaturePositions,
+    onSignaturePositionChange,
+  ]);
+
+  /*
    * Convert pointer position into coordinates relative
    * to the PDF page.
    */
@@ -405,11 +441,19 @@ function PdfViewer({
 
   /*
    * Add a signature to the current page.
+   *
+   * Pass the currently rendered page dimensions to the
+   * parent so the backend knows exactly what scale the
+   * frontend was using when the signature was placed.
    */
   const handleAddSignatureToCurrentPage = () => {
     if (!onAddSignature) return;
 
-    onAddSignature(currentPage - 1);
+    onAddSignature(
+      currentPage - 1,
+      renderedPageSize.width,
+      renderedPageSize.height
+    );
   };
 
   const canAddSignature =
