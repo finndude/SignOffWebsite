@@ -38,3 +38,8 @@
   padding: 12px 16px;
   border-radius: 10px;
 }
+
+/* Larger PDF viewer for admins */
+.documentviewer-page .pdfviewer-canvas-wrapper {
+  max-height: calc(100vh - 180px);
+}
