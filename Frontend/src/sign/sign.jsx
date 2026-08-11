@@ -34,6 +34,7 @@ function Sign() {
       .then((res) => res.json())
       .then((data) => {
         const doc = data.documents?.find((d) => d.id === documentId);
+
         setDocumentInfo(doc || null);
         setAlreadySigned(Boolean(doc?.is_signed));
       })
@@ -78,6 +79,7 @@ function Sign() {
   const handleClear = () => {
     signaturePadRef.current?.clear();
     setSignatureDataUrl("");
+    setSignaturePositions([]);
     setIsPlacingSignature(false);
   };
 
@@ -85,20 +87,31 @@ function Sign() {
   const handleUploadSignature = () => {
     setError("");
 
-    if (!signaturePadRef.current || signaturePadRef.current.isEmpty()) {
+    if (
+      !signaturePadRef.current ||
+      signaturePadRef.current.isEmpty()
+    ) {
       setError("Please draw your signature first.");
       return;
     }
 
-    const dataUrl = signaturePadRef.current.toDataURL("image/png");
+    const dataUrl =
+      signaturePadRef.current.toDataURL("image/png");
 
     setSignatureDataUrl(dataUrl);
     setIsPlacingSignature(true);
-  };
 
-  const handleSignatureUploaded = (dataUrl) => {
-    setSignatureDataUrl(dataUrl);
-    setIsPlacingSignature(true);
+    // Start with one signature on page 1.
+    setSignaturePositions([
+      {
+        id: crypto.randomUUID(),
+        page_number: 0,
+        x: 100,
+        y: 100,
+        width: 180,
+        height: 70,
+      },
+    ]);
   };
 
   const handleAddSignature = (pageNumber) => {
@@ -111,15 +124,23 @@ function Sign() {
         y: 100,
         width: 180,
         height: 70,
+        page_width: 0,
+        page_height: 0,
       },
     ]);
   };
 
-  const handleSignaturePositionChange = (id, position) => {
+  const handleSignaturePositionChange = (
+    id,
+    position
+  ) => {
     setSignaturePositions((current) =>
       current.map((signature) =>
         signature.id === id
-          ? { ...signature, ...position }
+          ? {
+              ...signature,
+              ...position,
+            }
           : signature
       )
     );
@@ -127,16 +148,27 @@ function Sign() {
 
   const handleRemoveSignature = (id) => {
     setSignaturePositions((current) =>
-      current.filter((signature) => signature.id !== id)
+      current.filter(
+        (signature) => signature.id !== id
+      )
     );
   };
 
-  // Final stage: send the signature + position to the backend.
+  // Final stage: send the signature + ALL positions to the backend.
   const handleSubmit = async () => {
     setError("");
 
     if (!signatureDataUrl) {
-      setError("Please upload your signature onto the document first.");
+      setError(
+        "Please upload your signature onto the document first."
+      );
+      return;
+    }
+
+    if (signaturePositions.length === 0) {
+      setError(
+        "Please place your signature on at least one page."
+      );
       return;
     }
 
@@ -149,20 +181,27 @@ function Sign() {
           method: "POST",
           body: JSON.stringify({
             signature_data_url: signatureDataUrl,
-            page_number: signaturePosition.page_number,
-            x: signaturePosition.x,
-            y: signaturePosition.y,
-            width: signaturePosition.width,
-            height: signaturePosition.height,
+            signatures: signaturePositions.map(
+              (signature) => ({
+                page_number:
+                  signature.page_number,
+                x: signature.x,
+                y: signature.y,
+                width: signature.width,
+                height: signature.height,
+              })
+            ),
           }),
         }
       );
 
-      const data = await response.json().catch(() => ({}));
+      const data =
+        await response.json().catch(() => ({}));
 
       if (!response.ok) {
         setError(
-          data.detail || "Something went wrong. Please try again."
+          data.detail ||
+            "Something went wrong. Please try again."
         );
         setIsSubmitting(false);
         return;
@@ -170,7 +209,9 @@ function Sign() {
 
       navigate(`/documents/${assignmentId}`);
     } catch (err) {
-      setError("Couldn't reach the server. Please try again.");
+      setError(
+        "Couldn't reach the server. Please try again."
+      );
       setIsSubmitting(false);
     }
   };
@@ -185,28 +226,44 @@ function Sign() {
         <button
           type="button"
           className="sign-back"
-          onClick={() => navigate(`/documents/${assignmentId}`)}
+          onClick={() =>
+            navigate(`/documents/${assignmentId}`)
+          }
           aria-label="Back to assignment"
         >
-          <ArrowLeft size={18} strokeWidth={1.8} />
+          <ArrowLeft
+            size={18}
+            strokeWidth={1.8}
+          />
         </button>
 
         <h1 className="sign-title">
-          {documentInfo ? documentInfo.filename : "Sign document"}
+          {documentInfo
+            ? documentInfo.filename
+            : "Sign document"}
         </h1>
 
         {alreadySigned ? (
           <div className="sign-already-signed">
             <PdfViewer fileUrl={fileUrl} />
 
-            <CheckCircle2 size={32} strokeWidth={1.8} />
+            <CheckCircle2
+              size={32}
+              strokeWidth={1.8}
+            />
 
-            <p>You've already signed this document.</p>
+            <p>
+              You've already signed this document.
+            </p>
 
             <button
               type="button"
               className="sign-back-button"
-              onClick={() => navigate(`/documents/${assignmentId}`)}
+              onClick={() =>
+                navigate(
+                  `/documents/${assignmentId}`
+                )
+              }
             >
               Back to documents
             </button>
@@ -214,19 +271,34 @@ function Sign() {
         ) : (
           <>
             <p className="sign-subtitle">
-              Review the document, then draw your signature below.
+              Review the document, then draw your
+              signature below.
             </p>
 
-            {error && <p className="sign-error">{error}</p>}
+            {error && (
+              <p className="sign-error">
+                {error}
+              </p>
+            )}
 
             <PdfViewer
               fileUrl={fileUrl}
               signatureDataUrl={signatureDataUrl}
-              signaturePositions={signaturePositions}
-              onSignaturePositionChange={handleSignaturePositionChange}
-              onAddSignature={handleAddSignature}
-              onRemoveSignature={handleRemoveSignature}
-              enableSignaturePlacement={isPlacingSignature}
+              signaturePositions={
+                signaturePositions
+              }
+              onSignaturePositionChange={
+                handleSignaturePositionChange
+              }
+              onAddSignature={
+                handleAddSignature
+              }
+              onRemoveSignature={
+                handleRemoveSignature
+              }
+              enableSignaturePlacement={
+                isPlacingSignature
+              }
             />
 
             <div className="sign-pad-wrapper">
@@ -242,7 +314,10 @@ function Sign() {
                 className="sign-clear"
                 onClick={handleClear}
               >
-                <RotateCcw size={16} strokeWidth={1.8} />
+                <RotateCcw
+                  size={16}
+                  strokeWidth={1.8}
+                />
                 Clear
               </button>
 
@@ -250,9 +325,14 @@ function Sign() {
                 <button
                   type="button"
                   className="sign-submit"
-                  onClick={handleUploadSignature}
+                  onClick={
+                    handleUploadSignature
+                  }
                 >
-                  <Upload size={16} strokeWidth={1.8} />
+                  <Upload
+                    size={16}
+                    strokeWidth={1.8}
+                  />
                   Upload Signature
                 </button>
               ) : (
@@ -262,7 +342,9 @@ function Sign() {
                   onClick={handleSubmit}
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? "Saving…" : "Save Signature"}
+                  {isSubmitting
+                    ? "Saving…"
+                    : "Save Signature"}
                 </button>
               )}
             </div>

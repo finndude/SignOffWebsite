@@ -18,6 +18,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
  * - page_number: zero-based page number
  * - x/y: top-left position in rendered pixels
  * - width/height: rendered signature size
+ * - page_width/page_height: actual rendered PDF page dimensions
  *
  * Each signature is stored independently, so a document can contain
  * multiple signatures across multiple pages.
@@ -269,6 +270,8 @@ function PdfViewer({
       {
         x: newX,
         y: newY,
+        page_width: renderedPageSize.width,
+        page_height: renderedPageSize.height,
       }
     );
   };
@@ -376,6 +379,8 @@ function PdfViewer({
       {
         width: newWidth,
         height: newHeight,
+        page_width: renderedPageSize.width,
+        page_height: renderedPageSize.height,
       }
     );
   };
@@ -400,9 +405,6 @@ function PdfViewer({
 
   /*
    * Add a signature to the current page.
-   *
-   * Try to place new signatures in different locations
-   * so they don't all appear directly on top of each other.
    */
   const handleAddSignatureToCurrentPage = () => {
     if (!onAddSignature) return;

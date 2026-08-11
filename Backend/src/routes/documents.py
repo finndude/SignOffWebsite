@@ -24,8 +24,7 @@ from src.services.storage_service import (
     get_download_url,
     get_file_from_storage,
     upload_signature_to_storage,
-    stamp_signature_on_pdf,
-    upload_file_to_storage,
+    overwrite_file_in_storage,
 )
 from src.services.email_service import send_signing_complete_email
 
@@ -175,7 +174,10 @@ def view_document_file(
     )
 
 
-@router.post("/{assignment_id}/documents/{document_id}/sign", response_model=SignDocumentResponse)
+@router.post(
+    "/{assignment_id}/documents/{document_id}/sign",
+    response_model=SignDocumentResponse,
+)
 def sign_document(
     assignment_id: str,
     document_id: str,
@@ -183,10 +185,18 @@ def sign_document(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    assignment = _get_owned_assignment(assignment_id, current_user, db)
+    assignment = _get_owned_assignment(
+        assignment_id,
+        current_user,
+        db,
+    )
 
     document = next(
-        (d for d in assignment.documents if str(d.id) == document_id),
+        (
+            d
+            for d in assignment.documents
+            if str(d.id) == document_id
+        ),
         None,
     )
 
@@ -196,57 +206,258 @@ def sign_document(
             detail="Document not found in this assignment.",
         )
 
-    # Strip the "data:image/png;base64," prefix if present.
+    if not payload.signatures:
+        raise HTTPException(
+            status_code=400,
+            detail="Please place your signature on at least one page.",
+        )
+
+    # ---------------------------------------------------------
+    # Decode the signature image
+    # ---------------------------------------------------------
+
     raw_data = payload.signature_data_url.split(",")[-1]
 
     try:
-        signature_bytes = base64.b64decode(raw_data)
+        image_bytes = base64.b64decode(raw_data)
+        signature_image = Image.open(
+            io.BytesIO(image_bytes)
+        ).convert("RGBA")
     except Exception:
         raise HTTPException(
             status_code=400,
             detail="Signature data is invalid.",
         )
 
-    # Store the original drawn signature separately.
-    signature_key = upload_signature_to_storage(signature_bytes)
+    # Store the original signature image as before.
+    signature_key = upload_signature_to_storage(
+        image_bytes
+    )
 
-    # Download the original PDF from private storage.
+    # ---------------------------------------------------------
+    # Download the original PDF from storage
+    # ---------------------------------------------------------
+
     try:
-        stored_file = get_file_from_storage(document.storage_key)
-        pdf_bytes = stored_file["Body"].read()
+        stored_file = get_file_from_storage(
+            document.storage_key
+        )
+
+        original_pdf_bytes = stored_file["Body"].read()
+
     except Exception:
         raise HTTPException(
             status_code=502,
-            detail="Couldn't load the document from storage.",
+            detail="Couldn't load this document from storage.",
         )
 
-    # Stamp the signature onto the PDF.
+    # ---------------------------------------------------------
+    # Read the PDF
+    # ---------------------------------------------------------
+
     try:
-        signed_pdf_bytes = stamp_signature_on_pdf(
-            pdf_bytes=pdf_bytes,
-            signature_bytes=signature_bytes,
-            page_number=payload.page_number,
-            x=payload.x,
-            y=payload.y,
-            width=payload.width,
-            height=payload.height,
+        reader = PdfReader(
+            io.BytesIO(original_pdf_bytes)
         )
-    except Exception as e:
-        print(f"[PDF signing failed] {type(e).__name__}: {e}")
+
+        writer = PdfWriter()
+
+        for page in reader.pages:
+            writer.add_page(page)
+
+    except Exception:
         raise HTTPException(
             status_code=500,
-            detail="Couldn't place the signature onto the PDF.",
+            detail="Couldn't process this PDF.",
         )
 
-    # Upload the newly signed PDF.
-    signed_pdf_key = upload_file_to_storage(
-        signed_pdf_bytes,
-        document.filename,
-        "application/pdf",
-    )
+    # ---------------------------------------------------------
+    # Add every signature placement
+    # ---------------------------------------------------------
 
-    # Replace the document's storage key with the signed PDF.
-    document.storage_key = signed_pdf_key
+    for signature in payload.signatures:
+
+        page_number = signature.page_number
+
+        if page_number < 0 or page_number >= len(reader.pages):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Invalid page number: "
+                    f"{page_number + 1}."
+                ),
+            )
+
+        page = writer.pages[page_number]
+
+        page_width = float(
+            page.mediabox.width
+        )
+
+        page_height = float(
+            page.mediabox.height
+        )
+
+        # The frontend displays the PDF at a different
+        # scale, so convert its pixel coordinates back
+        # into PDF points.
+        #
+        # We use the rendered page width to determine
+        # the scale. The frontend's PDF viewer renders
+        # the PDF proportionally to its container width.
+
+        rendered_width = signature.x + signature.width
+
+        if rendered_width <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid signature position.",
+            )
+
+        # Calculate the scale using the signature's
+        # dimensions relative to the PDF.
+        #
+        # The frontend sends coordinates in displayed
+        # pixels. The backend needs PDF points.
+        #
+        # The signature width is used together with the
+        # original signature image's aspect ratio.
+
+        signature_aspect_ratio = (
+            signature_image.width
+            / signature_image.height
+        )
+
+        # Use the signature's displayed width/height to
+        # preserve exactly the size chosen by the user.
+        #
+        # The frontend PDF viewer's default page width is
+        # determined by its container. The backend uses
+        # the same PDF aspect ratio to calculate the
+        # corresponding PDF dimensions.
+
+        frontend_page_width = (
+            page_width
+            * (
+                (
+                    signature.x
+                    + signature.width
+                )
+                / (
+                    signature.x
+                    + signature.width
+                )
+            )
+        )
+
+        del frontend_page_width
+
+        # Estimate the displayed PDF width from the
+        # signature's position and size.
+        #
+        # The PDF viewer scales the entire PDF uniformly,
+        # so we use the page aspect ratio and the displayed
+        # signature dimensions to create the overlay.
+        #
+        # A standard rendered PDF page width is used by
+        # the frontend container.
+        display_page_width = 700.0
+
+        scale = page_width / display_page_width
+
+        pdf_x = signature.x * scale
+
+        pdf_width = (
+            signature.width * scale
+        )
+
+        pdf_height = (
+            signature.height * scale
+        )
+
+        # Frontend Y coordinate starts at the top.
+        # PDF Y coordinate starts at the bottom.
+        pdf_y = (
+            page_height
+            - (
+                signature.y * scale
+            )
+            - pdf_height
+        )
+
+        # -------------------------------------------------
+        # Create a one-page transparent PDF containing
+        # this signature.
+        # -------------------------------------------------
+
+        overlay_buffer = io.BytesIO()
+
+        overlay = canvas.Canvas(
+            overlay_buffer,
+            pagesize=(
+                page_width,
+                page_height,
+            ),
+        )
+
+        # ReportLab needs the signature image as a file-like
+        # object.
+        signature_image_buffer = io.BytesIO(
+            image_bytes
+        )
+
+        overlay.drawImage(
+            signature_image_buffer,
+            pdf_x,
+            pdf_y,
+            width=pdf_width,
+            height=pdf_height,
+            preserveAspectRatio=True,
+            mask="auto",
+        )
+
+        overlay.save()
+
+        overlay_buffer.seek(0)
+
+        signature_pdf = PdfReader(
+            overlay_buffer
+        )
+
+        page.merge_page(
+            signature_pdf.pages[0]
+        )
+
+    # ---------------------------------------------------------
+    # Write the completed PDF into memory
+    # ---------------------------------------------------------
+
+    output_buffer = io.BytesIO()
+
+    writer.write(output_buffer)
+
+    signed_pdf_bytes = output_buffer.getvalue()
+
+    # ---------------------------------------------------------
+    # Overwrite the original PDF
+    # ---------------------------------------------------------
+
+    try:
+        overwrite_file_in_storage(
+            document.storage_key,
+            signed_pdf_bytes,
+            "application/pdf",
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=502,
+            detail="Couldn't save the signed document to storage.",
+        )
+
+    # ---------------------------------------------------------
+    # Update database
+    # ---------------------------------------------------------
+
     document.signature_storage_key = signature_key
     document.is_signed = True
     document.signed_at = datetime.utcnow()

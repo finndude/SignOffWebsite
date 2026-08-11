@@ -170,3 +170,19 @@ def stamp_signature_on_pdf(
     writer.write(output)
 
     return output.getvalue()
+
+def overwrite_file_in_storage(
+    storage_key: str,
+    file_bytes: bytes,
+    content_type: str = "application/pdf",
+) -> None:
+    """
+    Overwrites an existing object in storage using the same storage key.
+    This is used when a signed PDF replaces the original PDF.
+    """
+    s3_client.put_object(
+        Bucket=settings.storage_bucket_name,
+        Key=storage_key,
+        Body=file_bytes,
+        ContentType=content_type,
+    )
