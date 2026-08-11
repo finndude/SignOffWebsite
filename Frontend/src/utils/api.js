@@ -29,6 +29,13 @@ export async function apiFetch(path, options = {}) {
 
   let response = await doFetch();
 
+  console.log(
+    "[apiFetch]",
+    path,
+    "status:",
+    response.status
+  );
+
   if (response.status === 401 && path !== "/auth/refresh" && path !== "/auth/login") {
     const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
       method: "POST",
