@@ -15,3 +15,8 @@ class UserResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ActivateAccountRequest(BaseModel):
+    token: str
+    password: str

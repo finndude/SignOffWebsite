@@ -3,9 +3,10 @@ from sqlalchemy.orm import Session
 
 from src.database import get_db
 from src.models.user import User
-from src.schemas.auth import LoginRequest, UserResponse
+from src.schemas.auth import LoginRequest, UserResponse, ActivateAccountRequest
 from src.security import (
     verify_password,
+    hash_password,
     create_access_token,
     create_refresh_token,
     decode_token,
@@ -91,6 +92,42 @@ def logout(response: Response):
     response.delete_cookie("access_token")
     response.delete_cookie("refresh_token")
     return {"detail": "Logged out."}
+
+
+@router.post("/activate-account")
+def activate_account(payload: ActivateAccountRequest, db: Session = Depends(get_db)):
+    """
+    Called from the link in the invite email. Verifies the invite token,
+    sets the user's real password, and flips them out of pending status.
+    """
+    token_payload = decode_token(payload.token)
+    if not token_payload or token_payload.get("type") != "invite":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This invite link is invalid or has expired.",
+        )
+
+    user = db.query(User).filter(User.id == token_payload["sub"]).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User no longer exists.")
+
+    if not user.is_pending_activation:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This account has already been activated.",
+        )
+
+    if len(payload.password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters.",
+        )
+
+    user.hashed_password = hash_password(payload.password)
+    user.is_pending_activation = False
+    db.commit()
+
+    return {"detail": "Account activated. You can now log in."}
 
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:

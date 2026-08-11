@@ -6,16 +6,31 @@ import { apiFetch } from "../utils/api";
  * Wrap any route that requires login with this.
  * Checks /auth/me on mount — if it fails (even after a silent refresh
  * attempt inside apiFetch), bounces the user back to the login screen.
+ *
+ * Pass requireRole="admin" to also lock the route to a specific role —
+ * non-matching users get redirected to /dashboard instead.
  */
-function ProtectedRoute({ children }) {
-  const [status, setStatus] = useState("checking"); // "checking" | "authed" | "unauthed"
+function ProtectedRoute({ children, requireRole }) {
+  const [status, setStatus] = useState("checking"); // "checking" | "authed" | "unauthed" | "forbidden"
 
   useEffect(() => {
     let isMounted = true;
 
     apiFetch("/auth/me")
-      .then((response) => {
-        if (isMounted) setStatus(response.ok ? "authed" : "unauthed");
+      .then(async (response) => {
+        if (!isMounted) return;
+
+        if (!response.ok) {
+          setStatus("unauthed");
+          return;
+        }
+
+        const data = await response.json();
+        if (requireRole && data.role !== requireRole) {
+          setStatus("forbidden");
+        } else {
+          setStatus("authed");
+        }
       })
       .catch(() => {
         if (isMounted) setStatus("unauthed");
@@ -24,7 +39,7 @@ function ProtectedRoute({ children }) {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [requireRole]);
 
   if (status === "checking") {
     return null; // could swap this for a spinner later
@@ -32,6 +47,10 @@ function ProtectedRoute({ children }) {
 
   if (status === "unauthed") {
     return <Navigate to="/" replace />;
+  }
+
+  if (status === "forbidden") {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return children;

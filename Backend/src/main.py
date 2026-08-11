@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.config import settings
 from src.database import Base, engine
-from src.routes import auth
+from src.routes import auth, admin
 
 # Creates tables from models if they don't exist yet.
 # Fine for early development — switch to Alembic migrations once the schema stabilizes.
@@ -20,6 +20,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(admin.router)
 
 
 @app.get("/health")

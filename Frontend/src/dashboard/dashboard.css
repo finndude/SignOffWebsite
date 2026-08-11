@@ -2,12 +2,34 @@
   min-height: 100vh;
   width: 100%;
   margin: 0;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
   box-sizing: border-box;
   background: var(--bg);
+}
+
+.dashboard-add-icon {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e6ee;
+  color: #2f5ef5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(31, 45, 90, 0.08);
+}
+
+.dashboard-add-icon:hover {
+  background: #eaf0fb;
 }
 
 .dashboard-card {

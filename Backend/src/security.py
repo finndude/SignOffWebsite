@@ -32,6 +32,19 @@ def create_refresh_token(user_id: str) -> str:
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
+def create_invite_token(user_id: str) -> str:
+    """
+    Short-lived token embedded in the activation email link.
+    Separate 'type' claim from access/refresh tokens so it can't be
+    reused to authenticate as a normal session token.
+    """
+    expire = datetime.now(timezone.utc) + timedelta(
+        hours=settings.invite_token_expire_hours
+    )
+    payload = {"sub": user_id, "type": "invite", "exp": expire}
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
 def decode_token(token: str) -> dict | None:
     """Returns the token payload if valid, otherwise None."""
     try:

@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { UserPlus } from "lucide-react";
 import { apiFetch } from "../utils/api";
 import "./dashboard.css";
 
@@ -9,6 +10,14 @@ import "./dashboard.css";
  */
 function Dashboard() {
   const navigate = useNavigate();
+  const [role, setRole] = useState(null);
+
+  useEffect(() => {
+    apiFetch("/auth/me")
+      .then((res) => res.json())
+      .then((data) => setRole(data.role))
+      .catch(() => {});
+  }, []);
 
   const handleLogout = async () => {
     await apiFetch("/auth/logout", { method: "POST" });
@@ -17,6 +26,17 @@ function Dashboard() {
 
   return (
     <div className="dashboard-page">
+      {role === "admin" && (
+        <button
+          type="button"
+          className="dashboard-add-icon"
+          onClick={() => navigate("/admin/add-user")}
+          aria-label="Add user"
+        >
+          <UserPlus size={20} strokeWidth={1.8} />
+        </button>
+      )}
+
       <div className="dashboard-card">
         <h1>Dashboard</h1>
         <p>You're logged in. This screen is a placeholder for now.</p>
