@@ -1,7 +1,13 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class SignDocumentRequest(BaseModel):
-    # Base64-encoded PNG data URL from the signature pad,
-    # e.g. "data:image/png;base64,iVBORw0KG..."
     signature_data_url: str
+
+    page_number: int = Field(ge=0)
+
+    x: float
+    y: float
+
+    width: float = Field(gt=0)
+    height: float = Field(gt=0)

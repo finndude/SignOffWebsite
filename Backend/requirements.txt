@@ -34,3 +34,5 @@ httpx
 
 # == Other ==
 python-multipart
+pillow
+Pillow

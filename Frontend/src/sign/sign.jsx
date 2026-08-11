@@ -1,6 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, RotateCcw, CheckCircle2 } from "lucide-react";
+import {
+  ArrowLeft,
+  RotateCcw,
+  CheckCircle2,
+  Upload,
+} from "lucide-react";
 import SignaturePad from "signature_pad";
 import { API_BASE_URL, apiFetch } from "../utils/api";
 import PdfViewer from "../components/pdfviewer";
@@ -19,6 +24,18 @@ function Sign() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [alreadySigned, setAlreadySigned] = useState(false);
 
+  // New signing state
+  const [signatureDataUrl, setSignatureDataUrl] = useState("");
+  const [isPlacingSignature, setIsPlacingSignature] = useState(false);
+
+  const [signaturePosition, setSignaturePosition] = useState({
+    page_number: 0,
+    x: 100,
+    y: 100,
+    width: 180,
+    height: 70,
+  });
+
   // Load the assignment to find this document's filename + signed state.
   useEffect(() => {
     apiFetch(`/assignments/${assignmentId}`)
@@ -31,23 +48,26 @@ function Sign() {
       .catch(() => setError("Couldn't load this document."));
   }, [assignmentId, documentId]);
 
-  // Use the API as a private PDF proxy so browser CORS on storage is not required.
+  // Use the API as a private PDF proxy.
   useEffect(() => {
     setFileUrl(
       `${API_BASE_URL}/assignments/${assignmentId}/documents/${documentId}/file`
     );
   }, [assignmentId, documentId]);
 
-  // Set up the signature pad once the canvas exists.
+  // Set up the signature pad.
   useEffect(() => {
     if (!canvasRef.current) return;
 
     const resizeCanvas = () => {
       const canvas = canvasRef.current;
       const ratio = Math.max(window.devicePixelRatio || 1, 1);
+
       canvas.width = canvas.offsetWidth * ratio;
       canvas.height = canvas.offsetHeight * ratio;
+
       canvas.getContext("2d").scale(ratio, ratio);
+
       signaturePadRef.current?.clear();
     };
 
@@ -57,15 +77,20 @@ function Sign() {
     });
 
     resizeCanvas();
+
     window.addEventListener("resize", resizeCanvas);
+
     return () => window.removeEventListener("resize", resizeCanvas);
   }, []);
 
   const handleClear = () => {
     signaturePadRef.current?.clear();
+    setSignatureDataUrl("");
+    setIsPlacingSignature(false);
   };
 
-  const handleSubmit = async () => {
+  // First stage: convert the drawn signature into an image.
+  const handleUploadSignature = () => {
     setError("");
 
     if (!signaturePadRef.current || signaturePadRef.current.isEmpty()) {
@@ -73,21 +98,45 @@ function Sign() {
       return;
     }
 
+    const dataUrl = signaturePadRef.current.toDataURL("image/png");
+
+    setSignatureDataUrl(dataUrl);
+    setIsPlacingSignature(true);
+  };
+
+  // Final stage: send the signature + position to the backend.
+  const handleSubmit = async () => {
+    setError("");
+
+    if (!signatureDataUrl) {
+      setError("Please upload your signature onto the document first.");
+      return;
+    }
+
     setIsSubmitting(true);
-    const signatureDataUrl = signaturePadRef.current.toDataURL("image/png");
 
     try {
       const response = await apiFetch(
         `/assignments/${assignmentId}/documents/${documentId}/sign`,
         {
           method: "POST",
-          body: JSON.stringify({ signature_data_url: signatureDataUrl }),
+          body: JSON.stringify({
+            signature_data_url: signatureDataUrl,
+            page_number: signaturePosition.page_number,
+            x: signaturePosition.x,
+            y: signaturePosition.y,
+            width: signaturePosition.width,
+            height: signaturePosition.height,
+          }),
         }
       );
+
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        setError(data.detail || "Something went wrong. Please try again.");
+        setError(
+          data.detail || "Something went wrong. Please try again."
+        );
         setIsSubmitting(false);
         return;
       }
@@ -101,7 +150,11 @@ function Sign() {
 
   return (
     <div className="sign-page app-background">
-      <div className={`sign-card ${alreadySigned ? "sign-card-signed" : ""}`}>
+      <div
+        className={`sign-card ${
+          alreadySigned ? "sign-card-signed" : ""
+        }`}
+      >
         <button
           type="button"
           className="sign-back"
@@ -118,8 +171,11 @@ function Sign() {
         {alreadySigned ? (
           <div className="sign-already-signed">
             <PdfViewer fileUrl={fileUrl} />
+
             <CheckCircle2 size={32} strokeWidth={1.8} />
+
             <p>You've already signed this document.</p>
+
             <button
               type="button"
               className="sign-back-button"
@@ -130,29 +186,56 @@ function Sign() {
           </div>
         ) : (
           <>
-            <p className="sign-subtitle">Review the document, then draw your signature below.</p>
+            <p className="sign-subtitle">
+              Review the document, then draw your signature below.
+            </p>
 
             {error && <p className="sign-error">{error}</p>}
 
-            <PdfViewer fileUrl={fileUrl} />
+            <PdfViewer
+              fileUrl={fileUrl}
+              signatureDataUrl={signatureDataUrl}
+              signaturePosition={signaturePosition}
+              onSignaturePositionChange={setSignaturePosition}
+              enableSignaturePlacement={isPlacingSignature}
+            />
 
             <div className="sign-pad-wrapper">
-              <canvas ref={canvasRef} className="sign-pad-canvas" />
+              <canvas
+                ref={canvasRef}
+                className="sign-pad-canvas"
+              />
             </div>
 
             <div className="sign-actions">
-              <button type="button" className="sign-clear" onClick={handleClear}>
+              <button
+                type="button"
+                className="sign-clear"
+                onClick={handleClear}
+              >
                 <RotateCcw size={16} strokeWidth={1.8} />
                 Clear
               </button>
-              <button
-                type="button"
-                className="sign-submit"
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? "Saving…" : "Save Signature"}
-              </button>
+
+              {!isPlacingSignature ? (
+                <button
+                  type="button"
+                  className="sign-submit"
+                  onClick={handleUploadSignature}
+                >
+                  <Upload size={16} strokeWidth={1.8} />
+                  Upload Signature
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="sign-submit"
+                  onClick={handleSubmit}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? "Saving…" : "Save Signature"}
+                </button>
+              )}
             </div>
           </>
         )}

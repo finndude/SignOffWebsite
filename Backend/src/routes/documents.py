@@ -1,4 +1,5 @@
 import base64
+import io
 from datetime import datetime, date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -23,8 +24,13 @@ from src.services.storage_service import (
     get_download_url,
     get_file_from_storage,
     upload_signature_to_storage,
+    stamp_signature_on_pdf,
+    upload_file_to_storage,
 )
 from src.services.email_service import send_signing_complete_email
+
+from pypdf import PdfReader, PdfWriter
+from reportlab.pdfgen import canvas
 
 router = APIRouter(prefix="/assignments", tags=["documents"])
 
@@ -178,26 +184,80 @@ def sign_document(
     current_user: User = Depends(get_current_user),
 ):
     assignment = _get_owned_assignment(assignment_id, current_user, db)
-    document = next((d for d in assignment.documents if str(d.id) == document_id), None)
+
+    document = next(
+        (d for d in assignment.documents if str(d.id) == document_id),
+        None,
+    )
+
     if not document:
-        raise HTTPException(status_code=404, detail="Document not found in this assignment.")
+        raise HTTPException(
+            status_code=404,
+            detail="Document not found in this assignment.",
+        )
 
-    # Strip the "data:image/png;base64," prefix if present
+    # Strip the "data:image/png;base64," prefix if present.
     raw_data = payload.signature_data_url.split(",")[-1]
+
     try:
-        image_bytes = base64.b64decode(raw_data)
+        signature_bytes = base64.b64decode(raw_data)
     except Exception:
-        raise HTTPException(status_code=400, detail="Signature data is invalid.")
+        raise HTTPException(
+            status_code=400,
+            detail="Signature data is invalid.",
+        )
 
-    signature_key = upload_signature_to_storage(image_bytes)
+    # Store the original drawn signature separately.
+    signature_key = upload_signature_to_storage(signature_bytes)
 
+    # Download the original PDF from private storage.
+    try:
+        stored_file = get_file_from_storage(document.storage_key)
+        pdf_bytes = stored_file["Body"].read()
+    except Exception:
+        raise HTTPException(
+            status_code=502,
+            detail="Couldn't load the document from storage.",
+        )
+
+    # Stamp the signature onto the PDF.
+    try:
+        signed_pdf_bytes = stamp_signature_on_pdf(
+            pdf_bytes=pdf_bytes,
+            signature_bytes=signature_bytes,
+            page_number=payload.page_number,
+            x=payload.x,
+            y=payload.y,
+            width=payload.width,
+            height=payload.height,
+        )
+    except Exception as e:
+        print(f"[PDF signing failed] {type(e).__name__}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Couldn't place the signature onto the PDF.",
+        )
+
+    # Upload the newly signed PDF.
+    signed_pdf_key = upload_file_to_storage(
+        signed_pdf_bytes,
+        document.filename,
+        "application/pdf",
+    )
+
+    # Replace the document's storage key with the signed PDF.
+    document.storage_key = signed_pdf_key
     document.signature_storage_key = signature_key
     document.is_signed = True
     document.signed_at = datetime.utcnow()
+
     db.commit()
     db.refresh(document)
 
-    return SignDocumentResponse(detail="Document signed.", document=document)
+    return SignDocumentResponse(
+        detail="Document signed.",
+        document=document,
+    )
 
 
 @router.post("/{assignment_id}/confirm", response_model=ConfirmAssignmentResponse)

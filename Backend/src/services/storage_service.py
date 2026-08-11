@@ -1,7 +1,11 @@
+import io
 import re
 import uuid
 
 import boto3
+from pypdf import PdfReader, PdfWriter
+from PIL import Image
+from reportlab.lib.utils import ImageReader
 
 from src.config import settings
 
@@ -57,6 +61,20 @@ def upload_signature_to_storage(image_bytes: bytes) -> str:
 
     return storage_key
 
+def upload_signed_pdf_to_storage(pdf_bytes: bytes, storage_key: str) -> str:
+    """
+    Uploads the signed PDF back to the same storage location as the
+    original document, replacing the unsigned version.
+    """
+    s3_client.put_object(
+        Bucket=settings.storage_bucket_name,
+        Key=storage_key,
+        Body=pdf_bytes,
+        ContentType="application/pdf",
+    )
+
+    return storage_key
+
 
 def get_download_url(storage_key: str, expires_in_seconds: int = 3600) -> str:
     """
@@ -79,3 +97,76 @@ def get_file_from_storage(storage_key: str):
         Bucket=settings.storage_bucket_name,
         Key=storage_key,
     )
+
+def stamp_signature_on_pdf(
+    pdf_bytes: bytes,
+    signature_bytes: bytes,
+    page_number: int,
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+) -> bytes:
+    """
+    Places the signature image onto a specific PDF page.
+
+    Coordinates are in PDF points, with (0, 0) at the bottom-left
+    of the page.
+    """
+
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    writer = PdfWriter()
+
+    if page_number < 0 or page_number >= len(reader.pages):
+        raise ValueError("Invalid PDF page number.")
+
+    # Create a temporary PDF containing the signature image.
+    signature_image = Image.open(io.BytesIO(signature_bytes)).convert("RGBA")
+
+    signature_pdf = io.BytesIO()
+
+    # Create a PDF page sized to the requested signature dimensions.
+    from reportlab.pdfgen import canvas
+
+    signature_canvas = canvas.Canvas(
+        signature_pdf,
+        pagesize=(width, height),
+    )
+
+    signature_canvas.drawImage(
+        ImageReader(signature_image),
+        0,
+        0,
+        width=width,
+        height=height,
+        mask="auto",
+    )
+
+    signature_canvas.save()
+    signature_pdf.seek(0)
+
+    signature_reader = PdfReader(signature_pdf)
+    signature_page = signature_reader.pages[0]
+
+    # Position the signature on the requested page.
+    signature_page.merge_page(
+        reader.pages[page_number]
+    )
+
+    # Translate the signature page to the requested position.
+    signature_page.mediabox.lower_left = (x, y)
+    signature_page.mediabox.upper_right = (
+        x + width,
+        y + height,
+    )
+
+    for index, page in enumerate(reader.pages):
+        if index == page_number:
+            page.merge_page(signature_page)
+
+        writer.add_page(page)
+
+    output = io.BytesIO()
+    writer.write(output)
+
+    return output.getvalue()
