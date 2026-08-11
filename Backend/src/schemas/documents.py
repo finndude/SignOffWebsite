@@ -48,6 +48,8 @@ class AssignmentDetailResponse(BaseModel):
     status: str
     created_at: datetime
     assigned_by_name: str
+    assigned_by_id: UUID
+    current_user_id: UUID
     documents: list[DocumentInAssignment]
 
     class Config:

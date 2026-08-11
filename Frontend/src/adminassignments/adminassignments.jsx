@@ -4,7 +4,6 @@ import { ArrowLeft, CheckCircle2, Clock, ClipboardList } from "lucide-react";
 import { apiFetch } from "../utils/api";
 import "./adminassignments.css";
 
-
 function AdminAssignments() {
   const navigate = useNavigate();
   const [assignments, setAssignments] = useState([]);
@@ -29,6 +28,10 @@ function AdminAssignments() {
       day: "numeric",
     });
 
+  const openAssignment = (assignmentId) => {
+    navigate(`/documents/${assignmentId}`);
+  };
+
   return (
     <div className="adminassignments-page app-background">
       <div className="adminassignments-container">
@@ -41,6 +44,7 @@ function AdminAssignments() {
           >
             <ArrowLeft size={18} strokeWidth={1.8} />
           </button>
+
           <div>
             <h1 className="adminassignments-title">Assignments</h1>
             <p className="adminassignments-subtitle">
@@ -54,14 +58,22 @@ function AdminAssignments() {
         {isLoading ? (
           <p className="adminassignments-empty">Loading...</p>
         ) : assignments.length === 0 ? (
-          <p className="adminassignments-empty">No assignments uploaded yet.</p>
+          <p className="adminassignments-empty">
+            No assignments uploaded yet.
+          </p>
         ) : (
           <div className="adminassignments-list">
             {assignments.map((assignment) => {
               const isSigned = assignment.status === "signed";
 
               return (
-                <div key={assignment.id} className="adminassignments-row">
+                <button
+                  key={assignment.id}
+                  type="button"
+                  className="adminassignments-row"
+                  onClick={() => openAssignment(assignment.id)}
+                  aria-label={`View assignment ${assignment.title}`}
+                >
                   <div className="adminassignments-row-icon">
                     <ClipboardList size={20} strokeWidth={1.8} />
                   </div>
@@ -70,9 +82,12 @@ function AdminAssignments() {
                     <span className="adminassignments-row-title">
                       {assignment.title}
                     </span>
+
                     <span className="adminassignments-row-meta">
-                      {assignment.assigned_to_name} - {assignment.assigned_to_email}
+                      {assignment.assigned_to_name} -{" "}
+                      {assignment.assigned_to_email}
                     </span>
+
                     <span className="adminassignments-row-meta">
                       {assignment.document_count} document
                       {assignment.document_count !== 1 ? "s" : ""} - Uploaded{" "}
@@ -93,11 +108,12 @@ function AdminAssignments() {
                     ) : (
                       <>
                         <Clock size={14} strokeWidth={2} />
-                        {assignment.signed_count}/{assignment.document_count} signed
+                        {assignment.signed_count}/{assignment.document_count}{" "}
+                        signed
                       </>
                     )}
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>

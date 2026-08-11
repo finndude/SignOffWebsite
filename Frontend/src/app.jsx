@@ -11,6 +11,7 @@ import Documents from "./documents/documents";
 import AssignmentDetail from "./assignmentdetail/assignmentdetail";
 import Sign from "./sign/sign";
 import ProtectedRoute from "./routes/protectedroute";
+import DocumentViewer from "./documentviewer/documentviewer";
 
 function App() {
   return (
@@ -52,6 +53,15 @@ function App() {
           element={
             <ProtectedRoute>
               <Sign />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/documents/:assignmentId/view/:documentId"
+          element={
+            <ProtectedRoute>
+              <DocumentViewer />
             </ProtectedRoute>
           }
         />

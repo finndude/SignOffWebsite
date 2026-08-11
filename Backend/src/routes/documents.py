@@ -82,6 +82,27 @@ def _get_owned_assignment(assignment_id: str, current_user: User, db: Session) -
         raise HTTPException(status_code=403, detail="This assignment isn't yours.")
     return assignment
 
+def _get_viewable_assignment(
+    assignment_id: str,
+    current_user: User,
+    db: Session,
+) -> Assignment:
+    """Fetches an assignment and allows access to the signer or the admin who assigned it."""
+    assignment = db.query(Assignment).filter(Assignment.id == assignment_id).first()
+
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found.")
+
+    if (
+        assignment.assigned_to_id != current_user.id
+        and assignment.assigned_by_id != current_user.id
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="You don't have access to this assignment.",
+        )
+
+    return assignment
 
 @router.get("/{assignment_id}", response_model=AssignmentDetailResponse)
 def get_assignment(
@@ -89,13 +110,16 @@ def get_assignment(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    assignment = _get_owned_assignment(assignment_id, current_user, db)
+    assignment = _get_viewable_assignment(assignment_id, current_user, db)
+
     return AssignmentDetailResponse(
         id=assignment.id,
         title=assignment.title,
         status=assignment.status,
         created_at=assignment.created_at,
         assigned_by_name=assignment.assigned_by.name,
+        assigned_by_id=assignment.assigned_by_id,
+        current_user_id=current_user.id,
         documents=assignment.documents,
     )
 
@@ -107,7 +131,7 @@ def download_document(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    assignment = _get_owned_assignment(assignment_id, current_user, db)
+    assignment = _get_viewable_assignment(assignment_id, current_user, db)
     document = next((d for d in assignment.documents if str(d.id) == document_id), None)
     if not document:
         raise HTTPException(status_code=404, detail="Document not found in this assignment.")
@@ -122,7 +146,7 @@ def view_document_file(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    assignment = _get_owned_assignment(assignment_id, current_user, db)
+    assignment = _get_viewable_assignment(assignment_id, current_user, db)
     document = next((d for d in assignment.documents if str(d.id) == document_id), None)
     if not document:
         raise HTTPException(status_code=404, detail="Document not found in this assignment.")

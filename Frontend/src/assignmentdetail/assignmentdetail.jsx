@@ -35,6 +35,9 @@ function AssignmentDetail() {
 
   const allSigned = assignment?.documents?.every((doc) => doc.is_signed);
 
+  const isAssigner =
+    assignment?.assigned_by_id === assignment?.current_user_id;
+
   const handleConfirm = async () => {
     setConfirmError("");
     setIsConfirming(true);
@@ -43,10 +46,13 @@ function AssignmentDetail() {
       const response = await apiFetch(`/assignments/${assignmentId}/confirm`, {
         method: "POST",
       });
+
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        setConfirmError(data.detail || "Something went wrong. Please try again.");
+        setConfirmError(
+          data.detail || "Something went wrong. Please try again."
+        );
         setIsConfirming(false);
         return;
       }
@@ -59,6 +65,14 @@ function AssignmentDetail() {
     }
   };
 
+  const handleDocumentClick = (documentId) => {
+    if (isAssigner) {
+      navigate(`/documents/${assignmentId}/view/${documentId}`);
+    } else {
+      navigate(`/documents/${assignmentId}/sign/${documentId}`);
+    }
+  };
+
   return (
     <div className="assignmentdetail-page app-background">
       <div className="assignmentdetail-container">
@@ -66,18 +80,22 @@ function AssignmentDetail() {
           <button
             type="button"
             className="assignmentdetail-back"
-            onClick={() => navigate("/documents")}
-            aria-label="Back to documents"
+            onClick={() => navigate(isAssigner ? "/admin/assignments" : "/documents")}
+            aria-label="Back"
           >
             <ArrowLeft size={18} strokeWidth={1.8} />
           </button>
+
           <h1 className="assignmentdetail-title">
             {assignment?.title || "Documents to sign"}
           </h1>
         </div>
 
         {error && <p className="assignmentdetail-error">{error}</p>}
-        {confirmError && <p className="assignmentdetail-error">{confirmError}</p>}
+
+        {confirmError && (
+          <p className="assignmentdetail-error">{confirmError}</p>
+        )}
 
         {isLoading ? (
           <p className="assignmentdetail-empty">Loading…</p>
@@ -85,9 +103,11 @@ function AssignmentDetail() {
           <>
             <p className="assignmentdetail-meta">
               Assigned by {assignment.assigned_by_name}
+
               {assignment.status === "signed" && (
                 <span className="assignmentdetail-badge">
-                  <CheckCircle2 size={13} strokeWidth={2} /> All signed
+                  <CheckCircle2 size={13} strokeWidth={2} />
+                  All signed
                 </span>
               )}
             </p>
@@ -98,26 +118,34 @@ function AssignmentDetail() {
                   key={doc.id}
                   type="button"
                   className="assignmentdetail-row"
-                  onClick={() =>
-                    navigate(`/documents/${assignmentId}/sign/${doc.id}`)
-                  }
+                  onClick={() => handleDocumentClick(doc.id)}
                 >
-                  <FileText size={18} strokeWidth={1.8} className="assignmentdetail-row-icon" />
-                  <span className="assignmentdetail-row-name">{doc.filename}</span>
+                  <FileText
+                    size={18}
+                    strokeWidth={1.8}
+                    className="assignmentdetail-row-icon"
+                  />
+
+                  <span className="assignmentdetail-row-name">
+                    {doc.filename}
+                  </span>
+
                   {doc.is_signed ? (
                     <span className="assignmentdetail-row-status signed">
-                      <CheckCircle2 size={14} strokeWidth={2} /> Signed
+                      <CheckCircle2 size={14} strokeWidth={2} />
+                      Signed
                     </span>
                   ) : (
                     <span className="assignmentdetail-row-status pending">
-                      <Circle size={14} strokeWidth={2} /> Not signed
+                      <Circle size={14} strokeWidth={2} />
+                      Not signed
                     </span>
                   )}
                 </button>
               ))}
             </div>
 
-            {assignment.status !== "signed" && (
+            {!isAssigner && assignment.status !== "signed" && (
               <button
                 type="button"
                 className="assignmentdetail-confirm"
