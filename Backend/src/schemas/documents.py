@@ -21,6 +21,7 @@ class UploadDocumentsResponse(BaseModel):
 class AssignmentListItem(BaseModel):
     """One row in the assignee's document list."""
     id: UUID
+    title: Optional[str] = None
     status: str
     created_at: datetime
     assigned_by_name: str
@@ -43,6 +44,7 @@ class DocumentInAssignment(BaseModel):
 
 class AssignmentDetailResponse(BaseModel):
     id: UUID
+    title: Optional[str] = None
     status: str
     created_at: datetime
     assigned_by_name: str

@@ -16,6 +16,8 @@ class Assignment(Base):
     assigned_to_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     assigned_by_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
 
+    title = Column(String(120), default="Untitled upload", nullable=False)
+
     # "pending" until every document inside it is signed, then "signed"
     status = Column(String, default="pending", nullable=False)
 

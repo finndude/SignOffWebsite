@@ -45,6 +45,18 @@ def create_invite_token(user_id: str) -> str:
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
+def create_password_reset_token(user_id: str) -> str:
+    """
+    Short-lived token for password reset emails.
+    Separate token type prevents using reset links as login/session tokens.
+    """
+    expire = datetime.now(timezone.utc) + timedelta(
+        minutes=settings.password_reset_token_expire_minutes
+    )
+    payload = {"sub": user_id, "type": "password_reset", "exp": expire}
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
 def decode_token(token: str) -> dict | None:
     """Returns the token payload if valid, otherwise None."""
     try:

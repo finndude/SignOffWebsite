@@ -130,9 +130,13 @@ function Login() {
           </button>
         </form>
 
-        <a href="#" className="login-forgot">
+        <button
+          type="button"
+          className="login-forgot"
+          onClick={() => navigate("/forgot-password")}
+        >
           Forgot password?
-        </a>
+        </button>
 
         <div className="login-footer">
           <div className="login-footer-trust">

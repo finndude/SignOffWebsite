@@ -1,10 +1,10 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Lock, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Lock } from "lucide-react";
 import { apiFetch } from "../utils/api";
-import "./activateaccount.css";
+import "./resetpassword.css";
 
-function ActivateAccount() {
+function ResetPassword() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token") || "";
@@ -23,7 +23,7 @@ function ActivateAccount() {
     setError("");
 
     if (!token) {
-      setError("This activation link is missing its token.");
+      setError("This reset link is missing its token.");
       return;
     }
     if (password !== confirmPassword) {
@@ -38,7 +38,7 @@ function ActivateAccount() {
     setIsSubmitting(true);
 
     try {
-      const response = await apiFetch("/auth/activate-account", {
+      const response = await apiFetch("/auth/reset-password", {
         method: "POST",
         body: JSON.stringify({ token, password }),
       });
@@ -51,7 +51,7 @@ function ActivateAccount() {
         return;
       }
 
-      setSuccessMessage("Account activated! Redirecting to login…");
+      setSuccessMessage("Password reset. Redirecting to login...");
       setTimeout(() => navigate("/"), 1500);
     } catch (err) {
       setError("Couldn't reach the server. Please try again.");
@@ -60,26 +60,26 @@ function ActivateAccount() {
   };
 
   return (
-    <div className="activate-page app-background">
-      <div className="activate-card">
-        <h1 className="activate-title">Set your password</h1>
-        <p className="activate-subtitle">
-          Choose a password to activate your account.
+    <div className="reset-page app-background">
+      <div className="reset-card">
+        <h1 className="reset-title">Choose a new password</h1>
+        <p className="reset-subtitle">
+          Use at least 8 characters and include a number.
         </p>
 
-        <form className="activate-form" onSubmit={handleSubmit}>
-          {error && <p className="activate-error">{error}</p>}
-          {successMessage && <p className="activate-success">{successMessage}</p>}
+        <form className="reset-form" onSubmit={handleSubmit}>
+          {error && <p className="reset-error">{error}</p>}
+          {successMessage && <p className="reset-success">{successMessage}</p>}
 
-          <label className="activate-label" htmlFor="password">
+          <label className="reset-label" htmlFor="password">
             New password
           </label>
-          <div className="activate-input-wrapper">
-            <Lock className="activate-input-icon" size={18} strokeWidth={1.8} />
+          <div className="reset-input-wrapper">
+            <Lock className="reset-input-icon" size={18} strokeWidth={1.8} />
             <input
               id="password"
               type={showPassword ? "text" : "password"}
-              className="activate-input"
+              className="reset-input"
               placeholder="At least 8 characters"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -90,7 +90,7 @@ function ActivateAccount() {
             />
             <button
               type="button"
-              className="activate-input-toggle"
+              className="reset-input-toggle"
               onClick={() => setShowPassword((prev) => !prev)}
               aria-label={showPassword ? "Hide password" : "Show password"}
             >
@@ -102,15 +102,15 @@ function ActivateAccount() {
             </button>
           </div>
 
-          <label className="activate-label" htmlFor="confirmPassword">
+          <label className="reset-label" htmlFor="confirmPassword">
             Confirm password
           </label>
-          <div className="activate-input-wrapper">
-            <Lock className="activate-input-icon" size={18} strokeWidth={1.8} />
+          <div className="reset-input-wrapper">
+            <Lock className="reset-input-icon" size={18} strokeWidth={1.8} />
             <input
               id="confirmPassword"
               type={showPassword ? "text" : "password"}
-              className="activate-input"
+              className="reset-input"
               placeholder="Re-enter password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
@@ -121,12 +121,12 @@ function ActivateAccount() {
             />
           </div>
 
-          <p className="activate-password-rules">
+          <p className="reset-password-rules">
             Password must be at least 8 characters and contain a number.
           </p>
 
-          <button type="submit" className="activate-button" disabled={isSubmitting}>
-            {isSubmitting ? "Activating…" : "Activate Account"}
+          <button type="submit" className="reset-button" disabled={isSubmitting}>
+            {isSubmitting ? "Resetting..." : "Reset Password"}
           </button>
         </form>
       </div>
@@ -134,4 +134,4 @@ function ActivateAccount() {
   );
 }
 
-export default ActivateAccount;
+export default ResetPassword;

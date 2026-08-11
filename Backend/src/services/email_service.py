@@ -78,3 +78,29 @@ def send_signing_complete_email(to_email: str, name: str, filenames: list[str]) 
             </div>
         """,
     })
+
+
+def send_password_reset_email(to_email: str, name: str, reset_link: str) -> None:
+    """Sends a short-lived password reset link to an existing user."""
+    resend.Emails.send({
+        "from": settings.email_from_address,
+        "to": to_email,
+        "subject": "Reset your SignOffWebsite password",
+        "html": f"""
+            <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+                <h2>Hi {name},</h2>
+                <p>We received a request to reset your SignOffWebsite password.</p>
+                <p>
+                    <a href="{reset_link}"
+                       style="display:inline-block; background:#2f5ef5; color:#fff;
+                              padding:12px 20px; border-radius:8px; text-decoration:none;">
+                        Reset password
+                    </a>
+                </p>
+                <p style="color:#888; font-size:13px;">
+                    This link expires in {settings.password_reset_token_expire_minutes} minutes.
+                    If you didn't request this, you can ignore this email.
+                </p>
+            </div>
+        """,
+    })

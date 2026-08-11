@@ -7,7 +7,6 @@
   justify-content: center;
   padding: 24px;
   box-sizing: border-box;
-  background: var(--bg);
 }
 
 .sign-card {
@@ -19,6 +18,10 @@
   box-shadow: 0 20px 60px rgba(31, 45, 90, 0.14);
   padding: 40px 32px;
   box-sizing: border-box;
+}
+
+.sign-card-signed {
+  max-width: 900px;
 }
 
 .sign-back {
@@ -133,6 +136,14 @@
   color: #1b7a3d;
   padding: 20px 0;
   text-align: center;
+}
+
+.sign-already-signed .pdfviewer {
+  width: 100%;
+}
+
+.sign-card-signed .pdfviewer-canvas-wrapper {
+  max-height: 70vh;
 }
 
 .sign-already-signed p {

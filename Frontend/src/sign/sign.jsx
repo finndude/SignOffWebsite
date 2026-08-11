@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, RotateCcw, CheckCircle2 } from "lucide-react";
 import SignaturePad from "signature_pad";
-import { apiFetch } from "../utils/api";
+import { API_BASE_URL, apiFetch } from "../utils/api";
 import PdfViewer from "../components/pdfviewer";
 import "./sign.css";
 
@@ -31,12 +31,11 @@ function Sign() {
       .catch(() => setError("Couldn't load this document."));
   }, [assignmentId, documentId]);
 
-  // Fetch a temporary signed URL so the PDF can actually be displayed.
+  // Use the API as a private PDF proxy so browser CORS on storage is not required.
   useEffect(() => {
-    apiFetch(`/assignments/${assignmentId}/documents/${documentId}/download`)
-      .then((res) => res.json())
-      .then((data) => setFileUrl(data.download_url || ""))
-      .catch(() => setError("Couldn't load this document."));
+    setFileUrl(
+      `${API_BASE_URL}/assignments/${assignmentId}/documents/${documentId}/file`
+    );
   }, [assignmentId, documentId]);
 
   // Set up the signature pad once the canvas exists.
@@ -101,8 +100,8 @@ function Sign() {
   };
 
   return (
-    <div className="sign-page">
-      <div className="sign-card">
+    <div className="sign-page app-background">
+      <div className={`sign-card ${alreadySigned ? "sign-card-signed" : ""}`}>
         <button
           type="button"
           className="sign-back"

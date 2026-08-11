@@ -60,7 +60,7 @@ function AssignmentDetail() {
   };
 
   return (
-    <div className="assignmentdetail-page">
+    <div className="assignmentdetail-page app-background">
       <div className="assignmentdetail-container">
         <div className="assignmentdetail-header">
           <button
@@ -71,7 +71,9 @@ function AssignmentDetail() {
           >
             <ArrowLeft size={18} strokeWidth={1.8} />
           </button>
-          <h1 className="assignmentdetail-title">Documents to sign</h1>
+          <h1 className="assignmentdetail-title">
+            {assignment?.title || "Documents to sign"}
+          </h1>
         </div>
 
         {error && <p className="assignmentdetail-error">{error}</p>}

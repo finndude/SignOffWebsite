@@ -8,6 +8,7 @@ function Upload() {
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [title, setTitle] = useState("");
   const [assignedToId, setAssignedToId] = useState("");
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -39,6 +40,10 @@ function Upload() {
       setError("Add at least one file to upload.");
       return;
     }
+    if (!title.trim()) {
+      setError("Add a title for this upload.");
+      return;
+    }
     if (!assignedToId) {
       setError("Choose who these documents should be assigned to.");
       return;
@@ -48,6 +53,7 @@ function Upload() {
 
     try {
       const formData = new FormData();
+      formData.append("title", title.trim());
       formData.append("assigned_to_id", assignedToId);
       selectedFiles.forEach((file) => formData.append("files", file));
 
@@ -66,6 +72,7 @@ function Upload() {
 
       setSuccessMessage(data.detail || "Documents uploaded and assigned.");
       setSelectedFiles([]);
+      setTitle("");
       setAssignedToId("");
       setIsSubmitting(false);
     } catch (err) {
@@ -75,7 +82,7 @@ function Upload() {
   };
 
   return (
-    <div className="upload-page">
+    <div className="upload-page app-background">
       <div className="upload-card">
         <button
           type="button"
@@ -98,6 +105,20 @@ function Upload() {
         <form className="upload-form" onSubmit={handleSubmit}>
           {error && <p className="upload-error">{error}</p>}
           {successMessage && <p className="upload-success">{successMessage}</p>}
+
+          <label className="upload-label" htmlFor="uploadTitle">
+            Upload title
+          </label>
+          <input
+            id="uploadTitle"
+            type="text"
+            className="upload-input"
+            placeholder="e.g. August site safety review"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            maxLength={120}
+            required
+          />
 
           <label className="upload-label" htmlFor="fileInput">
             Files

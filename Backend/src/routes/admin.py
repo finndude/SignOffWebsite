@@ -7,7 +7,11 @@ from src.database import get_db
 from src.models.user import User
 from src.models.assignment import Assignment
 from src.models.document import Document
-from src.schemas.admin import InviteUserRequest, InviteUserResponse
+from src.schemas.admin import (
+    AdminAssignmentListItem,
+    InviteUserRequest,
+    InviteUserResponse,
+)
 from src.schemas.documents import UserSummary, UploadDocumentsResponse
 from src.routes.auth import get_current_user
 from src.security import hash_password, create_invite_token
@@ -49,7 +53,7 @@ def invite_user(
         name=payload.name,
         email=payload.email,
         hashed_password=hash_password(placeholder_password),
-        role="assignee",
+        role=payload.role,
         is_pending_activation=True,
     )
     db.add(new_user)
@@ -73,6 +77,41 @@ def invite_user(
     return {"detail": f"Invite sent to {new_user.email}."}
 
 
+@router.get("/assignments", response_model=list[AdminAssignmentListItem])
+def list_admin_assignments(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """
+    Every assignment uploaded by this admin, with signing progress.
+    """
+    assignments = (
+        db.query(Assignment)
+        .filter(Assignment.assigned_by_id == admin.id)
+        .order_by(Assignment.created_at.desc())
+        .all()
+    )
+
+    results = []
+    for assignment in assignments:
+        doc_count = len(assignment.documents)
+        signed_count = sum(1 for document in assignment.documents if document.is_signed)
+        results.append(
+            AdminAssignmentListItem(
+                id=assignment.id,
+                title=assignment.title,
+                status=assignment.status,
+                created_at=assignment.created_at,
+                assigned_to_name=assignment.assigned_to.name,
+                assigned_to_email=assignment.assigned_to.email,
+                document_count=doc_count,
+                signed_count=signed_count,
+            )
+        )
+
+    return results
+
+
 @router.get("/users", response_model=list[UserSummary])
 def list_assignable_users(
     db: Session = Depends(get_db),
@@ -87,11 +126,17 @@ def list_assignable_users(
 
 @router.post("/documents/upload", response_model=UploadDocumentsResponse)
 async def upload_documents(
+    title: str = Form(...),
     assigned_to_id: str = Form(...),
     files: list[UploadFile] = File(...),
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
+    title = title.strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Upload title is required.")
+    if len(title) > 120:
+        raise HTTPException(status_code=400, detail="Upload title must be 120 characters or fewer.")
     if not files:
         raise HTTPException(status_code=400, detail="No files were provided.")
 
@@ -100,6 +145,7 @@ async def upload_documents(
         raise HTTPException(status_code=404, detail="Selected assignee does not exist.")
 
     assignment = Assignment(
+        title=title,
         assigned_to_id=assignee.id,
         assigned_by_id=admin.id,
         status="pending",

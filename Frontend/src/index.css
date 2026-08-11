@@ -41,6 +41,24 @@ html, body, #root {
   }
 }
 
+.app-background {
+  background-color: #eaf0fb;
+  background-image:
+    linear-gradient(rgba(234, 240, 251, 0.2), rgba(234, 240, 251, 0.2)),
+    url("./assets/login/background-desktop.png");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+@media (max-width: 768px) {
+  .app-background {
+    background-image:
+      linear-gradient(rgba(234, 240, 251, 0.24), rgba(234, 240, 251, 0.24)),
+      url("./assets/login/background-mobile.png");
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --text: #9ca3af;

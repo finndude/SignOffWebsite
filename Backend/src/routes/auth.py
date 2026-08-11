@@ -3,15 +3,23 @@ from sqlalchemy.orm import Session
 
 from src.database import get_db
 from src.models.user import User
-from src.schemas.auth import LoginRequest, UserResponse, ActivateAccountRequest
+from src.schemas.auth import (
+    ActivateAccountRequest,
+    ForgotPasswordRequest,
+    LoginRequest,
+    ResetPasswordRequest,
+    UserResponse,
+)
 from src.security import (
     verify_password,
     hash_password,
     create_access_token,
+    create_password_reset_token,
     create_refresh_token,
     decode_token,
 )
 from src.config import settings
+from src.services.email_service import send_password_reset_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -22,6 +30,19 @@ COOKIE_KWARGS = dict(
     secure=settings.app_env == "production",
     samesite="lax",
 )
+
+
+def _validate_password_rules(password: str) -> None:
+    if len(password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters.",
+        )
+    if not any(character.isdigit() for character in password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must contain at least one number.",
+        )
 
 
 @router.post("/login", response_model=UserResponse)
@@ -117,17 +138,64 @@ def activate_account(payload: ActivateAccountRequest, db: Session = Depends(get_
             detail="This account has already been activated.",
         )
 
-    if len(payload.password) < 8:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password must be at least 8 characters.",
-        )
+    _validate_password_rules(payload.password)
 
     user.hashed_password = hash_password(payload.password)
     user.is_pending_activation = False
     db.commit()
 
     return {"detail": "Account activated. You can now log in."}
+
+
+@router.post("/forgot-password")
+def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Sends a reset link if the account exists. Always returns the same success
+    response so attackers cannot use this endpoint to discover registered emails.
+    """
+    generic_response = {
+        "detail": "If an account exists for that email, a password reset link has been sent.",
+    }
+
+    user = db.query(User).filter(User.email == payload.email).first()
+    if not user or user.is_pending_activation:
+        return generic_response
+
+    reset_token = create_password_reset_token(str(user.id))
+    reset_link = f"{settings.frontend_url}/reset-password?token={reset_token}"
+
+    try:
+        send_password_reset_email(user.email, user.name, reset_link)
+    except Exception as e:
+        print(f"[password reset email failed] {type(e).__name__}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Password reset email failed to send. Please try again later.",
+        )
+
+    return generic_response
+
+
+@router.post("/reset-password")
+def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    token_payload = decode_token(payload.token)
+    if not token_payload or token_payload.get("type") != "password_reset":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This password reset link is invalid or has expired.",
+        )
+
+    user = db.query(User).filter(User.id == token_payload["sub"]).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User no longer exists.")
+
+    _validate_password_rules(payload.password)
+
+    user.hashed_password = hash_password(payload.password)
+    user.is_pending_activation = False
+    db.commit()
+
+    return {"detail": "Password reset. You can now log in."}
 
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:

@@ -1,13 +1,9 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { UserPlus, Upload, FileStack } from "lucide-react";
+import { ClipboardList, FileStack, LogOut, Upload, UserPlus } from "lucide-react";
 import { apiFetch } from "../utils/api";
 import "./dashboard.css";
 
-/**
- * Placeholder dashboard screen.
- * Just a redirect target for login right now — real UI comes later.
- */
 function Dashboard() {
   const navigate = useNavigate();
   const [role, setRole] = useState(null);
@@ -24,46 +20,77 @@ function Dashboard() {
     navigate("/");
   };
 
+  const dashboardActions = [
+    {
+      label: "My documents",
+      description: "Review assigned files and complete sign-off requests.",
+      icon: FileStack,
+      path: "/documents",
+      adminOnly: false,
+    },
+    {
+      label: "Upload documents",
+      description: "Upload PDFs and assign them to someone for review.",
+      icon: Upload,
+      path: "/admin/upload",
+      adminOnly: true,
+    },
+    {
+      label: "Assignments",
+      description: "Track whether uploaded files have been signed off.",
+      icon: ClipboardList,
+      path: "/admin/assignments",
+      adminOnly: true,
+    },
+    {
+      label: "Invite user",
+      description: "Add a signer and send them an activation link.",
+      icon: UserPlus,
+      path: "/admin/add-user",
+      adminOnly: true,
+    },
+  ].filter((action) => !action.adminOnly || role === "admin");
+
   return (
-    <div className="dashboard-page">
-      <div className="dashboard-icon-group">
-        <button
-          type="button"
-          className="dashboard-icon-button"
-          onClick={() => navigate("/documents")}
-          aria-label="My documents"
-        >
-          <FileStack size={20} strokeWidth={1.8} />
-        </button>
+    <div className="dashboard-page app-background">
+      <button type="button" className="dashboard-logout" onClick={handleLogout}>
+        <LogOut size={18} strokeWidth={1.8} />
+        Log out
+      </button>
 
-        {role === "admin" && (
-          <>
-            <button
-              type="button"
-              className="dashboard-icon-button"
-              onClick={() => navigate("/admin/upload")}
-              aria-label="Upload documents"
-            >
-              <Upload size={20} strokeWidth={1.8} />
-            </button>
-            <button
-              type="button"
-              className="dashboard-icon-button"
-              onClick={() => navigate("/admin/add-user")}
-              aria-label="Add user"
-            >
-              <UserPlus size={20} strokeWidth={1.8} />
-            </button>
-          </>
-        )}
-      </div>
+      <div className="dashboard-shell">
+        <div className="dashboard-heading">
+          <span className="dashboard-kicker">
+            {role === "admin" ? "Admin workspace" : "Signing workspace"}
+          </span>
+          <h1>Dashboard</h1>
+          <p>Choose where you want to go next.</p>
+        </div>
 
-      <div className="dashboard-card">
-        <h1>Dashboard</h1>
-        <p>You're logged in. This screen is a placeholder for now.</p>
-        <button type="button" className="dashboard-logout" onClick={handleLogout}>
-          Log out
-        </button>
+        <div className="dashboard-action-grid">
+          {dashboardActions.map((action) => {
+            const Icon = action.icon;
+
+            return (
+              <button
+                key={action.path}
+                type="button"
+                className="dashboard-action-card"
+                onClick={() => navigate(action.path)}
+              >
+                <span className="dashboard-action-icon">
+                  <Icon size={38} strokeWidth={1.7} />
+                </span>
+                <span className="dashboard-action-text">
+                  <span className="dashboard-action-title">{action.label}</span>
+                  <span className="dashboard-action-description">
+                    {action.description}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

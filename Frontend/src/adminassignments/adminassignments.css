@@ -1,0 +1,163 @@
+.adminassignments-page {
+  min-height: 100vh;
+  width: 100%;
+  margin: 0;
+  padding: 24px;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+}
+
+.adminassignments-container {
+  width: 100%;
+  max-width: 780px;
+}
+
+.adminassignments-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.adminassignments-back {
+  background: #ffffff;
+  border: 1px solid #e2e6ee;
+  border-radius: 10px;
+  color: #6b7688;
+  cursor: pointer;
+  display: flex;
+  padding: 8px;
+  box-shadow: 0 4px 14px rgba(31, 45, 90, 0.08);
+}
+
+.adminassignments-back:hover {
+  color: #14213d;
+  background: #eaf0fb;
+}
+
+.adminassignments-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: #14213d;
+  margin: 0;
+  letter-spacing: 0;
+}
+
+.adminassignments-subtitle {
+  color: #6b7688;
+  font-size: 14px;
+  margin: 2px 0 0;
+}
+
+.adminassignments-empty {
+  text-align: center;
+  color: #6b7688;
+  font-size: 14px;
+  padding: 40px 0;
+}
+
+.adminassignments-error {
+  background: #fdecec;
+  color: #b3261e;
+  font-size: 13.5px;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.adminassignments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.adminassignments-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid #e2e6ee;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 12px 36px rgba(31, 45, 90, 0.1);
+}
+
+.adminassignments-row-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: #eaf0fb;
+  color: #2f5ef5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.adminassignments-row-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.adminassignments-row-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #14213d;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adminassignments-row-meta {
+  font-size: 12.5px;
+  color: #6b7688;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adminassignments-row-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 7px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.adminassignments-row-status.signed {
+  background: #eafaf0;
+  color: #1b7a3d;
+}
+
+.adminassignments-row-status.pending {
+  background: #fff6e5;
+  color: #a6660b;
+}
+
+@media (max-width: 680px) {
+  .adminassignments-page {
+    padding: 18px;
+  }
+
+  .adminassignments-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .adminassignments-row-info {
+    min-width: calc(100% - 56px);
+  }
+
+  .adminassignments-row-status {
+    margin-left: 56px;
+  }
+}

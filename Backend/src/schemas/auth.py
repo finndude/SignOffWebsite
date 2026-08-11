@@ -20,3 +20,12 @@ class UserResponse(BaseModel):
 class ActivateAccountRequest(BaseModel):
     token: str
     password: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str

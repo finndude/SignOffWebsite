@@ -8,6 +8,7 @@ function AddUsers() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [role, setRole] = useState("assignee");
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -21,7 +22,7 @@ function AddUsers() {
     try {
       const response = await apiFetch("/admin/invite-user", {
         method: "POST",
-        body: JSON.stringify({ name, email }),
+        body: JSON.stringify({ name, email, role }),
       });
 
       const data = await response.json().catch(() => ({}));
@@ -35,6 +36,7 @@ function AddUsers() {
       setSuccessMessage(data.detail || "Invite sent.");
       setName("");
       setEmail("");
+      setRole("assignee");
       setIsSubmitting(false);
     } catch (err) {
       setError("Couldn't reach the server. Please try again.");
@@ -43,7 +45,7 @@ function AddUsers() {
   };
 
   return (
-    <div className="addusers-page">
+    <div className="addusers-page app-background">
       <div className="addusers-card">
         <button
           type="button"
@@ -92,6 +94,20 @@ function AddUsers() {
             onChange={(e) => setEmail(e.target.value)}
             required
           />
+
+          <label className="addusers-label" htmlFor="role">
+            Account type
+          </label>
+          <select
+            id="role"
+            className="addusers-select"
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            required
+          >
+            <option value="assignee">Regular signer</option>
+            <option value="admin">Admin</option>
+          </select>
 
           <button type="submit" className="addusers-button" disabled={isSubmitting}>
             {isSubmitting ? "Sending invite…" : "Send Invite"}

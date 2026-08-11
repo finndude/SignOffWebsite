@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
     invite_token_expire_hours: int = 48
+    password_reset_token_expire_minutes: int = 30
 
     cors_allowed_origins: str = "http://localhost:5173"
     frontend_url: str = "http://localhost:5173"

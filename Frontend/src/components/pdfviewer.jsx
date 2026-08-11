@@ -28,7 +28,10 @@ function PdfViewer({ fileUrl }) {
     setError("");
 
     pdfjsLib
-      .getDocument(fileUrl)
+      .getDocument({
+        url: fileUrl,
+        withCredentials: true,
+      })
       .promise.then((pdfDoc) => {
         if (isCancelled) return;
         pdfDocRef.current = pdfDoc;
@@ -64,10 +67,19 @@ function PdfViewer({ fileUrl }) {
       const scale = containerWidth / unscaledViewport.width;
       const viewport = page.getViewport({ scale });
 
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
+      const outputScale = Math.max(window.devicePixelRatio || 1, 1);
 
-      page.render({ canvasContext: context, viewport });
+      canvas.width = Math.floor(viewport.width * outputScale);
+      canvas.height = Math.floor(viewport.height * outputScale);
+      canvas.style.width = `${Math.floor(viewport.width)}px`;
+      canvas.style.height = `${Math.floor(viewport.height)}px`;
+
+      page.render({
+        canvasContext: context,
+        viewport,
+        transform:
+          outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null,
+      });
     });
 
     return () => {

@@ -45,7 +45,7 @@ function Documents() {
     });
 
   return (
-    <div className="documents-page">
+    <div className="documents-page app-background">
       <div className="documents-container">
         <div className="documents-header">
           <button
@@ -124,8 +124,10 @@ function Documents() {
 
                 <div className="documents-row-info">
                   <span className="documents-row-title">
-                    {assignment.document_count} document
-                    {assignment.document_count !== 1 ? "s" : ""}
+                    {assignment.title ||
+                      `${assignment.document_count} document${
+                        assignment.document_count !== 1 ? "s" : ""
+                      }`}
                   </span>
                   <span className="documents-row-meta">
                     Assigned by {assignment.assigned_by_name} · {formatDate(assignment.created_at)}

@@ -7,7 +7,6 @@
   justify-content: center;
   padding: 24px;
   box-sizing: border-box;
-  background: var(--bg);
 }
 
 .activate-card {
@@ -86,6 +85,13 @@
   display: flex;
   color: #9aa4b8;
   cursor: pointer;
+}
+
+.activate-password-rules {
+  color: #6b7688;
+  font-size: 12.5px;
+  line-height: 1.4;
+  margin: -8px 0 20px;
 }
 
 .activate-button {

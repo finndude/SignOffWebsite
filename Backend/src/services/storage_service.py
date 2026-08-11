@@ -68,3 +68,14 @@ def get_download_url(storage_key: str, expires_in_seconds: int = 3600) -> str:
         Params={"Bucket": settings.storage_bucket_name, "Key": storage_key},
         ExpiresIn=expires_in_seconds,
     )
+
+
+def get_file_from_storage(storage_key: str):
+    """
+    Opens a private object from storage so the API can stream it to the browser.
+    This avoids requiring browser CORS rules on the Backblaze bucket for PDF preview.
+    """
+    return s3_client.get_object(
+        Bucket=settings.storage_bucket_name,
+        Key=storage_key,
+    )

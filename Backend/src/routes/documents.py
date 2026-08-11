@@ -2,6 +2,7 @@ import base64
 from datetime import datetime, date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -18,7 +19,11 @@ from src.schemas.documents import (
 )
 from src.schemas.signing import SignDocumentRequest
 from src.routes.auth import get_current_user
-from src.services.storage_service import upload_signature_to_storage, get_download_url
+from src.services.storage_service import (
+    get_download_url,
+    get_file_from_storage,
+    upload_signature_to_storage,
+)
 from src.services.email_service import send_signing_complete_email
 
 router = APIRouter(prefix="/assignments", tags=["documents"])
@@ -56,6 +61,7 @@ def list_my_assignments(
         results.append(
             AssignmentListItem(
                 id=assignment.id,
+                title=assignment.title,
                 status=assignment.status,
                 created_at=assignment.created_at,
                 assigned_by_name=assignment.assigned_by.name,
@@ -86,6 +92,7 @@ def get_assignment(
     assignment = _get_owned_assignment(assignment_id, current_user, db)
     return AssignmentDetailResponse(
         id=assignment.id,
+        title=assignment.title,
         status=assignment.status,
         created_at=assignment.created_at,
         assigned_by_name=assignment.assigned_by.name,
@@ -106,6 +113,36 @@ def download_document(
         raise HTTPException(status_code=404, detail="Document not found in this assignment.")
 
     return DocumentDownloadResponse(download_url=get_download_url(document.storage_key))
+
+
+@router.get("/{assignment_id}/documents/{document_id}/file")
+def view_document_file(
+    assignment_id: str,
+    document_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    assignment = _get_owned_assignment(assignment_id, current_user, db)
+    document = next((d for d in assignment.documents if str(d.id) == document_id), None)
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found in this assignment.")
+
+    try:
+        stored_file = get_file_from_storage(document.storage_key)
+    except Exception:
+        raise HTTPException(status_code=502, detail="Couldn't load this file from storage.")
+
+    headers = {
+        "Content-Disposition": f'inline; filename="{document.filename}"',
+    }
+    if stored_file.get("ContentLength") is not None:
+        headers["Content-Length"] = str(stored_file["ContentLength"])
+
+    return StreamingResponse(
+        stored_file["Body"],
+        media_type=stored_file.get("ContentType") or "application/pdf",
+        headers=headers,
+    )
 
 
 @router.post("/{assignment_id}/documents/{document_id}/sign", response_model=SignDocumentResponse)

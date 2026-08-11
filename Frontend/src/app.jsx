@@ -1,9 +1,12 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Login from "./login/Login";
+import ForgotPassword from "./forgotpassword/ForgotPassword";
+import ResetPassword from "./resetpassword/ResetPassword";
 import Dashboard from "./dashboard/Dashboard";
 import AddUsers from "./addusers/AddUsers";
 import ActivateAccount from "./activateaccount/ActivateAccount";
 import Upload from "./upload/Upload";
+import AdminAssignments from "./adminassignments/AdminAssignments";
 import Documents from "./documents/Documents";
 import AssignmentDetail from "./assignmentdetail/AssignmentDetail";
 import Sign from "./sign/Sign";
@@ -16,6 +19,8 @@ function App() {
         {/* Public */}
         <Route path="/" element={<Login />} />
         <Route path="/activate-account" element={<ActivateAccount />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         {/* Any logged-in user */}
         <Route
@@ -65,6 +70,14 @@ function App() {
           element={
             <ProtectedRoute requireRole="admin">
               <Upload />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/assignments"
+          element={
+            <ProtectedRoute requireRole="admin">
+              <AdminAssignments />
             </ProtectedRoute>
           }
         />
