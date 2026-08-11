@@ -107,3 +107,42 @@
   cursor: nwse-resize;
   touch-action: none;
 }
+
+.pdfviewer-add-signature {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+
+  margin-top: 12px;
+  padding: 9px 14px;
+
+  border: 1px solid #dfe3eb;
+  border-radius: 8px;
+
+  background: #f7f8fb;
+  color: #2b3348;
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.pdfviewer-add-signature:hover {
+  background: #eef1f6;
+  border-color: #d5dae4;
+}
+
+.pdfviewer-add-signature:active {
+  transform: translateY(1px);
+}
+
+.pdfviewer-add-signature svg {
+  flex-shrink: 0;
+}
