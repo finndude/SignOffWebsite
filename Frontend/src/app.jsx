@@ -1,11 +1,11 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Login from "./login/Login";
+import Login from "./login/login";
 import ForgotPassword from "./forgotpassword/ForgotPassword";
 import ResetPassword from "./resetpassword/ResetPassword";
-import Dashboard from "./dashboard/Dashboard";
-import AddUsers from "./addusers/AddUsers";
-import ActivateAccount from "./activateaccount/ActivateAccount";
-import Upload from "./upload/Upload";
+import Dashboard from "./dashboard/dashboard";
+import AddUsers from "./addusers/addusers";
+import ActivateAccount from "./activateaccount/activateaccount";
+import Upload from "./upload/upload";
 import AdminAssignments from "./adminassignments/AdminAssignments";
 import Documents from "./documents/Documents";
 import AssignmentDetail from "./assignmentdetail/AssignmentDetail";
