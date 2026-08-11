@@ -1,7 +1,7 @@
 // Central place for talking to the backend.
 // Move this to VITE_API_BASE_URL once you're ready to deploy —
 // hardcoded to localhost for now since that's all we need in dev.
-export const API_BASE_URL = "http://localhost:8000";
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 /**
  * Wrapper around fetch that:
