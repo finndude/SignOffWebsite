@@ -6,11 +6,11 @@ import Dashboard from "./dashboard/dashboard";
 import AddUsers from "./addusers/addusers";
 import ActivateAccount from "./activateaccount/activateaccount";
 import Upload from "./upload/upload";
-import AdminAssignments from "./adminassignments/AdminAssignments";
-import Documents from "./documents/Documents";
-import AssignmentDetail from "./assignmentdetail/AssignmentDetail";
-import Sign from "./sign/Sign";
-import ProtectedRoute from "./routes/ProtectedRoute";
+import AdminAssignments from "./adminassignments/adminassignments";
+import Documents from "./documents/documents";
+import AssignmentDetail from "./assignmentdetail/assignmentdetail";
+import Sign from "./sign/sign";
+import ProtectedRoute from "./routes/protectedroute";
 
 function App() {
   return (
