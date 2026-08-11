@@ -218,3 +218,10 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
 @router.get("/me", response_model=UserResponse)
 def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+@router.get("/debug-cookies")
+def debug_cookies(request: Request):
+    return {
+        "has_access_token": bool(request.cookies.get("access_token")),
+        "has_refresh_token": bool(request.cookies.get("refresh_token")),
+    }
