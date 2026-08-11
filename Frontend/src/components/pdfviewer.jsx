@@ -12,37 +12,45 @@ import "./pdfviewer.css";
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 /**
- * PDF viewer with multi-page signature placement.
+ * PDF viewer with optional multi-page signature placement.
  *
- * Each signature has its own:
- * - page
- * - x/y position
- * - width/height
+ * Signature positions use:
+ * - page_number: zero-based page number
+ * - x/y: top-left position in rendered pixels
+ * - width/height: rendered signature size
  *
- * Signatures can therefore be placed independently on multiple pages.
+ * Each signature is stored independently, so a document can contain
+ * multiple signatures across multiple pages.
  */
 function PdfViewer({
   fileUrl,
-  signatureDataUrl,
+  signatureDataUrl = "",
   signaturePositions = [],
-  onSignaturePositionChange,
-  onAddSignature,
-  onRemoveSignature,
+  onSignaturePositionChange = null,
+  onAddSignature = null,
+  onRemoveSignature = null,
   enableSignaturePlacement = false,
 }) {
   const canvasRef = useRef(null);
   const pdfDocRef = useRef(null);
-  const viewerRef = useRef(null);
+  const viewerWrapperRef = useRef(null);
 
   const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [draggingSignature, setDraggingSignature] = useState(null);
-  const [resizingSignature, setResizingSignature] = useState(null);
+  const [renderedPageSize, setRenderedPageSize] = useState({
+    width: 0,
+    height: 0,
+  });
 
-  // Load the PDF document whenever the URL changes.
+  const dragRef = useRef(null);
+  const resizeRef = useRef(null);
+
+  /*
+   * Load PDF.
+   */
   useEffect(() => {
     if (!fileUrl) return;
 
@@ -80,7 +88,9 @@ function PdfViewer({
     };
   }, [fileUrl]);
 
-  // Render the current PDF page.
+  /*
+   * Render current PDF page.
+   */
   useEffect(() => {
     if (!pdfDocRef.current || !canvasRef.current) return;
 
@@ -98,7 +108,8 @@ function PdfViewer({
         scale: 1,
       });
 
-      const scale = containerWidth / unscaledViewport.width;
+      const scale =
+        containerWidth / unscaledViewport.width;
 
       const viewport = page.getViewport({
         scale,
@@ -120,12 +131,24 @@ function PdfViewer({
       canvas.style.width = `${Math.floor(viewport.width)}px`;
       canvas.style.height = `${Math.floor(viewport.height)}px`;
 
+      setRenderedPageSize({
+        width: viewport.width,
+        height: viewport.height,
+      });
+
       page.render({
         canvasContext: context,
         viewport,
         transform:
           outputScale !== 1
-            ? [outputScale, 0, 0, outputScale, 0, 0]
+            ? [
+                outputScale,
+                0,
+                0,
+                outputScale,
+                0,
+                0,
+              ]
             : null,
       });
     });
@@ -136,155 +159,264 @@ function PdfViewer({
   }, [currentPage, numPages]);
 
   /*
-   * Add a new signature to the current page.
+   * Convert pointer position into coordinates relative
+   * to the PDF page.
    */
-  const handleAddSignature = () => {
-    if (!signatureDataUrl || !onAddSignature) return;
+  const getPositionFromPointer = (clientX, clientY) => {
+    if (!viewerWrapperRef.current) return null;
+
+    const rect =
+      viewerWrapperRef.current.getBoundingClientRect();
+
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top,
+    };
+  };
+
+  /*
+   * Find the signature currently being dragged.
+   */
+  const getSignatureById = (id) => {
+    return signaturePositions.find(
+      (signature) => signature.id === id
+    );
+  };
+
+  /*
+   * Begin dragging a signature.
+   */
+  const handleSignaturePointerDown = (
+    event,
+    signature
+  ) => {
+    if (!enableSignaturePlacement) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const point = getPositionFromPointer(
+      event.clientX,
+      event.clientY
+    );
+
+    if (!point) return;
+
+    dragRef.current = {
+      id: signature.id,
+      startX: point.x,
+      startY: point.y,
+      originalX: signature.x,
+      originalY: signature.y,
+    };
+
+    event.currentTarget.setPointerCapture?.(
+      event.pointerId
+    );
+  };
+
+  /*
+   * Move signature.
+   */
+  const handleSignaturePointerMove = (event) => {
+    if (!dragRef.current) return;
+
+    const signature = getSignatureById(
+      dragRef.current.id
+    );
+
+    if (!signature) return;
+
+    const point = getPositionFromPointer(
+      event.clientX,
+      event.clientY
+    );
+
+    if (!point) return;
+
+    const deltaX =
+      point.x - dragRef.current.startX;
+
+    const deltaY =
+      point.y - dragRef.current.startY;
+
+    let newX =
+      dragRef.current.originalX + deltaX;
+
+    let newY =
+      dragRef.current.originalY + deltaY;
+
+    const maxX =
+      renderedPageSize.width -
+      signature.width;
+
+    const maxY =
+      renderedPageSize.height -
+      signature.height;
+
+    newX = Math.max(
+      0,
+      Math.min(newX, maxX)
+    );
+
+    newY = Math.max(
+      0,
+      Math.min(newY, maxY)
+    );
+
+    onSignaturePositionChange?.(
+      signature.id,
+      {
+        x: newX,
+        y: newY,
+      }
+    );
+  };
+
+  /*
+   * Finish dragging.
+   */
+  const handleSignaturePointerUp = () => {
+    dragRef.current = null;
+  };
+
+  /*
+   * Begin resizing.
+   */
+  const handleResizePointerDown = (
+    event,
+    signature
+  ) => {
+    if (!enableSignaturePlacement) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const point = getPositionFromPointer(
+      event.clientX,
+      event.clientY
+    );
+
+    if (!point) return;
+
+    resizeRef.current = {
+      id: signature.id,
+      startX: point.x,
+      startY: point.y,
+      originalWidth: signature.width,
+      originalHeight: signature.height,
+    };
+
+    event.currentTarget.setPointerCapture?.(
+      event.pointerId
+    );
+  };
+
+  /*
+   * Resize signature while maintaining aspect ratio.
+   */
+  const handleResizePointerMove = (event) => {
+    if (!resizeRef.current) return;
+
+    const signature = getSignatureById(
+      resizeRef.current.id
+    );
+
+    if (!signature) return;
+
+    const point = getPositionFromPointer(
+      event.clientX,
+      event.clientY
+    );
+
+    if (!point) return;
+
+    const deltaX =
+      point.x - resizeRef.current.startX;
+
+    const aspectRatio =
+      resizeRef.current.originalWidth /
+      resizeRef.current.originalHeight;
+
+    let newWidth =
+      resizeRef.current.originalWidth +
+      deltaX;
+
+    const minimumWidth = 80;
+
+    newWidth = Math.max(
+      minimumWidth,
+      newWidth
+    );
+
+    const maxWidth =
+      renderedPageSize.width -
+      signature.x;
+
+    const maxHeight =
+      renderedPageSize.height -
+      signature.y;
+
+    newWidth = Math.min(
+      newWidth,
+      maxWidth
+    );
+
+    let newHeight =
+      newWidth / aspectRatio;
+
+    if (newHeight > maxHeight) {
+      newHeight = maxHeight;
+      newWidth =
+        newHeight * aspectRatio;
+    }
+
+    onSignaturePositionChange?.(
+      signature.id,
+      {
+        width: newWidth,
+        height: newHeight,
+      }
+    );
+  };
+
+  /*
+   * Finish resizing.
+   */
+  const handleResizePointerUp = () => {
+    resizeRef.current = null;
+  };
+
+  /*
+   * Only show signatures belonging to the currently
+   * displayed page.
+   */
+  const currentPageSignatures =
+    signaturePositions.filter(
+      (signature) =>
+        signature.page_number ===
+        currentPage - 1
+    );
+
+  /*
+   * Add a signature to the current page.
+   *
+   * Try to place new signatures in different locations
+   * so they don't all appear directly on top of each other.
+   */
+  const handleAddSignatureToCurrentPage = () => {
+    if (!onAddSignature) return;
 
     onAddSignature(currentPage - 1);
   };
 
-  /*
-   * Start dragging a signature.
-   */
-  const handleSignatureMouseDown = (event, signature) => {
-    if (!enableSignaturePlacement) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-
-    setDraggingSignature({
-      id: signature.id,
-      startX: event.clientX,
-      startY: event.clientY,
-      originalX: signature.x,
-      originalY: signature.y,
-    });
-  };
-
-  /*
-   * Start resizing a signature.
-   */
-  const handleResizeMouseDown = (event, signature) => {
-    if (!enableSignaturePlacement) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-
-    setResizingSignature({
-      id: signature.id,
-      startX: event.clientX,
-      startY: event.clientY,
-      originalWidth: signature.width,
-      originalHeight: signature.height,
-    });
-  };
-
-  /*
-   * Handle dragging/resizing while the mouse moves.
-   */
-  useEffect(() => {
-    const handleMouseMove = (event) => {
-      if (draggingSignature) {
-        const signature = signaturePositions.find(
-          (item) => item.id === draggingSignature.id
-        );
-
-        if (!signature) return;
-
-        const deltaX =
-          event.clientX - draggingSignature.startX;
-
-        const deltaY =
-          event.clientY - draggingSignature.startY;
-
-        onSignaturePositionChange?.(
-          draggingSignature.id,
-          {
-            x: Math.max(
-              0,
-              draggingSignature.originalX + deltaX
-            ),
-            y: Math.max(
-              0,
-              draggingSignature.originalY + deltaY
-            ),
-          }
-        );
-      }
-
-      if (resizingSignature) {
-        const signature = signaturePositions.find(
-          (item) => item.id === resizingSignature.id
-        );
-
-        if (!signature) return;
-
-        const deltaX =
-          event.clientX - resizingSignature.startX;
-
-        const newWidth = Math.max(
-          80,
-          resizingSignature.originalWidth + deltaX
-        );
-
-        const aspectRatio =
-          resizingSignature.originalHeight /
-          resizingSignature.originalWidth;
-
-        const newHeight = newWidth * aspectRatio;
-
-        onSignaturePositionChange?.(
-          resizingSignature.id,
-          {
-            width: newWidth,
-            height: newHeight,
-          }
-        );
-      }
-    };
-
-    const handleMouseUp = () => {
-      setDraggingSignature(null);
-      setResizingSignature(null);
-    };
-
-    window.addEventListener(
-      "mousemove",
-      handleMouseMove
-    );
-
-    window.addEventListener(
-      "mouseup",
-      handleMouseUp
-    );
-
-    return () => {
-      window.removeEventListener(
-        "mousemove",
-        handleMouseMove
-      );
-
-      window.removeEventListener(
-        "mouseup",
-        handleMouseUp
-      );
-    };
-  }, [
-    draggingSignature,
-    resizingSignature,
-    signaturePositions,
-    onSignaturePositionChange,
-  ]);
-
-  const currentPageSignatures =
-    signaturePositions.filter(
-      (signature) =>
-        signature.page_number === currentPage - 1
-    );
+  const canAddSignature =
+    enableSignaturePlacement &&
+    Boolean(signatureDataUrl) &&
+    Boolean(onAddSignature);
 
   return (
-    <div className="pdfviewer" ref={viewerRef}>
+    <div className="pdfviewer">
       {error && (
         <p className="pdfviewer-error">
           {error}
@@ -298,6 +430,7 @@ function PdfViewer({
       )}
 
       <div
+        ref={viewerWrapperRef}
         className="pdfviewer-canvas-wrapper"
         style={{
           display: isLoading ? "none" : "block",
@@ -309,65 +442,103 @@ function PdfViewer({
           className="pdfviewer-canvas"
         />
 
-        {/* Signatures belonging to the current page */}
-        {currentPageSignatures.map((signature) => (
-          <div
-            key={signature.id}
-            className="pdfviewer-signature"
-            style={{
-              left: `${signature.x}px`,
-              top: `${signature.y}px`,
-              width: `${signature.width}px`,
-              height: `${signature.height}px`,
-            }}
-            onMouseDown={(event) =>
-              handleSignatureMouseDown(
-                event,
-                signature
-              )
-            }
-          >
-            <img
-              src={signatureDataUrl}
-              alt="Signature"
-              draggable={false}
-            />
+        {enableSignaturePlacement &&
+          signatureDataUrl &&
+          renderedPageSize.width > 0 &&
+          currentPageSignatures.map(
+            (signature) => (
+              <div
+                key={signature.id}
+                className="pdfviewer-signature-overlay"
+                style={{
+                  left: `${signature.x}px`,
+                  top: `${signature.y}px`,
+                  width: `${signature.width}px`,
+                  height: `${signature.height}px`,
+                }}
+                onPointerDown={(event) =>
+                  handleSignaturePointerDown(
+                    event,
+                    signature
+                  )
+                }
+                onPointerMove={
+                  handleSignaturePointerMove
+                }
+                onPointerUp={
+                  handleSignaturePointerUp
+                }
+                onPointerCancel={
+                  handleSignaturePointerUp
+                }
+              >
+                <img
+                  src={signatureDataUrl}
+                  alt="Signature"
+                  draggable={false}
+                />
 
-            {enableSignaturePlacement && (
-              <>
                 <button
                   type="button"
-                  className="pdfviewer-signature-delete"
-                  onMouseDown={(event) => {
+                  className="pdfviewer-signature-remove"
+                  onPointerDown={(event) => {
                     event.preventDefault();
                     event.stopPropagation();
                   }}
                   onClick={(event) => {
                     event.preventDefault();
                     event.stopPropagation();
+
                     onRemoveSignature?.(
                       signature.id
                     );
                   }}
                   aria-label="Remove signature"
                 >
-                  <Trash2 size={13} />
+                  <Trash2
+                    size={13}
+                    strokeWidth={2}
+                  />
                 </button>
 
                 <div
                   className="pdfviewer-signature-resize"
-                  onMouseDown={(event) =>
-                    handleResizeMouseDown(
+                  onPointerDown={(event) =>
+                    handleResizePointerDown(
                       event,
                       signature
                     )
                   }
+                  onPointerMove={
+                    handleResizePointerMove
+                  }
+                  onPointerUp={
+                    handleResizePointerUp
+                  }
+                  onPointerCancel={
+                    handleResizePointerUp
+                  }
                 />
-              </>
-            )}
-          </div>
-        ))}
+              </div>
+            )
+          )}
       </div>
+
+      {canAddSignature && (
+        <button
+          type="button"
+          className="pdfviewer-add-signature"
+          onClick={
+            handleAddSignatureToCurrentPage
+          }
+        >
+          <Plus
+            size={15}
+            strokeWidth={2}
+          />
+          Add signature to page {currentPage}
+        </button>
+      )}
 
       {numPages > 1 && (
         <div className="pdfviewer-controls">
@@ -398,7 +569,9 @@ function PdfViewer({
                 Math.min(numPages, p + 1)
               )
             }
-            disabled={currentPage === numPages}
+            disabled={
+              currentPage === numPages
+            }
             aria-label="Next page"
           >
             <ChevronRight
@@ -408,19 +581,6 @@ function PdfViewer({
           </button>
         </div>
       )}
-
-      {enableSignaturePlacement &&
-        signatureDataUrl && (
-          <div className="pdfviewer-add-signature">
-            <button
-              type="button"
-              onClick={handleAddSignature}
-            >
-              <Plus size={16} />
-              Add signature to page {currentPage}
-            </button>
-          </div>
-        )}
     </div>
   );
 }
