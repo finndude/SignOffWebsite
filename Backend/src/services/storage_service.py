@@ -44,6 +44,20 @@ def upload_file_to_storage(file_bytes: bytes, original_filename: str, content_ty
     return storage_key
 
 
+def upload_signature_to_storage(image_bytes: bytes) -> str:
+    """Stores a drawn signature (PNG) uploaded from the signing screen."""
+    storage_key = f"signatures/{uuid.uuid4()}.png"
+
+    s3_client.put_object(
+        Bucket=settings.storage_bucket_name,
+        Key=storage_key,
+        Body=image_bytes,
+        ContentType="image/png",
+    )
+
+    return storage_key
+
+
 def get_download_url(storage_key: str, expires_in_seconds: int = 3600) -> str:
     """
     Generates a temporary signed URL so the frontend can fetch/display

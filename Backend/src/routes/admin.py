@@ -5,9 +5,10 @@ from sqlalchemy.orm import Session
 
 from src.database import get_db
 from src.models.user import User
+from src.models.assignment import Assignment
 from src.models.document import Document
 from src.schemas.admin import InviteUserRequest, InviteUserResponse
-from src.schemas.documents import UserSummary, DocumentResponse, UploadDocumentsResponse
+from src.schemas.documents import UserSummary, UploadDocumentsResponse
 from src.routes.auth import get_current_user
 from src.security import hash_password, create_invite_token
 from src.services.email_service import send_invite_email, send_documents_assigned_email
@@ -98,6 +99,14 @@ async def upload_documents(
     if not assignee:
         raise HTTPException(status_code=404, detail="Selected assignee does not exist.")
 
+    assignment = Assignment(
+        assigned_to_id=assignee.id,
+        assigned_by_id=admin.id,
+        status="pending",
+    )
+    db.add(assignment)
+    db.flush()  # gets assignment.id without a full commit yet
+
     created_documents: list[Document] = []
 
     for upload in files:
@@ -111,11 +120,9 @@ async def upload_documents(
         storage_key = upload_file_to_storage(file_bytes, upload.filename, upload.content_type)
 
         document = Document(
+            assignment_id=assignment.id,
             filename=upload.filename,
             storage_key=storage_key,
-            uploaded_by_id=admin.id,
-            assigned_to_id=assignee.id,
-            status="pending",
         )
         db.add(document)
         created_documents.append(document)
@@ -138,5 +145,4 @@ async def upload_documents(
 
     return {
         "detail": f"{len(created_documents)} document(s) assigned to {assignee.name}.",
-        "documents": created_documents,
     }

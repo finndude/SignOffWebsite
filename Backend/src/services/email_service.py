@@ -38,7 +38,6 @@ def send_invite_email(to_email: str, name: str, invite_link: str) -> None:
 
 
 def send_documents_assigned_email(to_email: str, name: str, filenames: list[str], dashboard_link: str) -> None:
-    """Notifies an assignee that new documents have been uploaded for them to sign."""
     file_list_html = "".join(f"<li>{name}</li>" for name in filenames)
 
     resend.Emails.send({
@@ -57,6 +56,25 @@ def send_documents_assigned_email(to_email: str, name: str, filenames: list[str]
                         View documents
                     </a>
                 </p>
+            </div>
+        """,
+    })
+
+
+def send_signing_complete_email(to_email: str, name: str, filenames: list[str]) -> None:
+    """Sent to the assignee once they've confirmed signing every document in an assignment."""
+    file_list_html = "".join(f"<li>{name}</li>" for name in filenames)
+
+    resend.Emails.send({
+        "from": settings.email_from_address,
+        "to": to_email,
+        "subject": "Your documents have been signed",
+        "html": f"""
+            <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+                <h2>Hi {name},</h2>
+                <p>This confirms you've signed the following document{'s' if len(filenames) != 1 else ''}:</p>
+                <ul>{file_list_html}</ul>
+                <p>You can view them any time from your dashboard.</p>
             </div>
         """,
     })
