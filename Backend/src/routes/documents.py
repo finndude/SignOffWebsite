@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from PIL import Image
 from pypdf import PdfReader, PdfWriter
 from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
 
 from src.database import get_db
 from src.models.user import User
@@ -500,12 +501,14 @@ def sign_document(
             ),
         )
 
-        signature_image_buffer = io.BytesIO(
-            image_bytes
+        # ReportLab expects an ImageReader/image source here.
+        # Passing BytesIO directly causes a TypeError on Render.
+        signature_image_reader = ImageReader(
+            signature_image
         )
 
         overlay.drawImage(
-            signature_image_buffer,
+            signature_image_reader,
             pdf_x,
             pdf_y,
             width=pdf_width,
