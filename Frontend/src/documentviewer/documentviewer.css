@@ -1,10 +1,11 @@
 .documentviewer-page {
   min-height: 100vh;
-  padding: 40px 20px;
+  padding: 30px 40px;
 }
 
 .documentviewer-card {
-  width: min(100%, 900px);
+  width: 100%;
+  max-width: none;
   margin: 0 auto;
   position: relative;
 }
