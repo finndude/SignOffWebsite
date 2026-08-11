@@ -13,12 +13,16 @@ export const API_BASE_URL = "http://localhost:8000";
  * token expiry without forcing the user to log in again every time.
  */
 export async function apiFetch(path, options = {}) {
+  const isFormData = options.body instanceof FormData;
+
   const doFetch = () =>
     fetch(`${API_BASE_URL}${path}`, {
       ...options,
       credentials: "include",
       headers: {
-        "Content-Type": "application/json",
+        // Skip forcing JSON for FormData — the browser sets its own
+        // multipart Content-Type (with the correct boundary) automatically.
+        ...(isFormData ? {} : { "Content-Type": "application/json" }),
         ...(options.headers || {}),
       },
     });

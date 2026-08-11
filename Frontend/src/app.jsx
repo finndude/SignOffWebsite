@@ -3,6 +3,7 @@ import Login from "./login/Login";
 import Dashboard from "./dashboard/Dashboard";
 import AddUsers from "./addusers/AddUsers";
 import ActivateAccount from "./activateaccount/ActivateAccount";
+import Upload from "./upload/Upload";
 import ProtectedRoute from "./routes/ProtectedRoute";
 
 function App() {
@@ -11,6 +12,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/activate-account" element={<ActivateAccount />} />
+
         <Route
           path="/dashboard"
           element={
@@ -19,11 +21,21 @@ function App() {
             </ProtectedRoute>
           }
         />
+
         <Route
           path="/admin/add-user"
           element={
             <ProtectedRoute requireRole="admin">
               <AddUsers />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/upload"
+          element={
+            <ProtectedRoute requireRole="admin">
+              <Upload />
             </ProtectedRoute>
           }
         />

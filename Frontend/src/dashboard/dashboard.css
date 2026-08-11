@@ -11,10 +11,15 @@
   background: var(--bg);
 }
 
-.dashboard-add-icon {
+.dashboard-icon-group {
   position: absolute;
   top: 24px;
   right: 24px;
+  display: flex;
+  gap: 10px;
+}
+
+.dashboard-icon-button {
   width: 44px;
   height: 44px;
   border-radius: 12px;
@@ -28,7 +33,7 @@
   box-shadow: 0 4px 14px rgba(31, 45, 90, 0.08);
 }
 
-.dashboard-add-icon:hover {
+.dashboard-icon-button:hover {
   background: #eaf0fb;
 }
 

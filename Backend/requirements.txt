@@ -21,7 +21,7 @@ reportlab
 boto3
 
 # === Email sending ===
-# resend
+resend
 # or: sendgrid
 
 # === Config / env ===
@@ -31,3 +31,6 @@ pydantic-settings
 # === Testing ===
 pytest
 httpx
+
+# == Other ==
+python-multipart

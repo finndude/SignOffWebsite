@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { UserPlus } from "lucide-react";
+import { UserPlus, Upload } from "lucide-react";
 import { apiFetch } from "../utils/api";
 import "./dashboard.css";
 
@@ -27,14 +27,24 @@ function Dashboard() {
   return (
     <div className="dashboard-page">
       {role === "admin" && (
-        <button
-          type="button"
-          className="dashboard-add-icon"
-          onClick={() => navigate("/admin/add-user")}
-          aria-label="Add user"
-        >
-          <UserPlus size={20} strokeWidth={1.8} />
-        </button>
+        <div className="dashboard-icon-group">
+          <button
+            type="button"
+            className="dashboard-icon-button"
+            onClick={() => navigate("/admin/upload")}
+            aria-label="Upload documents"
+          >
+            <Upload size={20} strokeWidth={1.8} />
+          </button>
+          <button
+            type="button"
+            className="dashboard-icon-button"
+            onClick={() => navigate("/admin/add-user")}
+            aria-label="Add user"
+          >
+            <UserPlus size={20} strokeWidth={1.8} />
+          </button>
+        </div>
       )}
 
       <div className="dashboard-card">

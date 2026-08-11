@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     resend_api_key: str
     email_from_address: str
 
+    storage_endpoint: str
+    storage_access_key_id: str
+    storage_secret_access_key: str
+    storage_bucket_name: str
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_allowed_origins.split(",")]

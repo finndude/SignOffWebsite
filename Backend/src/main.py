@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.config import settings
 from src.database import Base, engine
+from src.models import user, document  # noqa: F401 — imported so create_all sees them
 from src.routes import auth, admin
 
 # Creates tables from models if they don't exist yet.

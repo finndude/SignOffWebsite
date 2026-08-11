@@ -35,3 +35,28 @@ def send_invite_email(to_email: str, name: str, invite_link: str) -> None:
             </div>
         """,
     })
+
+
+def send_documents_assigned_email(to_email: str, name: str, filenames: list[str], dashboard_link: str) -> None:
+    """Notifies an assignee that new documents have been uploaded for them to sign."""
+    file_list_html = "".join(f"<li>{name}</li>" for name in filenames)
+
+    resend.Emails.send({
+        "from": settings.email_from_address,
+        "to": to_email,
+        "subject": "You have new documents to sign",
+        "html": f"""
+            <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+                <h2>Hi {name},</h2>
+                <p>You've been assigned {len(filenames)} document{'s' if len(filenames) != 1 else ''} to review and sign:</p>
+                <ul>{file_list_html}</ul>
+                <p>
+                    <a href="{dashboard_link}"
+                       style="display:inline-block; background:#2f5ef5; color:#fff;
+                              padding:12px 20px; border-radius:8px; text-decoration:none;">
+                        View documents
+                    </a>
+                </p>
+            </div>
+        """,
+    })
