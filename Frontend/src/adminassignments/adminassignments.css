@@ -50,10 +50,14 @@
   margin: 2px 0 0;
 }
 
+/* ---------------------------------------------------------
+   Filters
+--------------------------------------------------------- */
+
 .adminassignments-filters {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: end;
   gap: 12px;
   background: #ffffff;
   border: 1px solid #e2e6ee;
@@ -64,31 +68,30 @@
 
 .adminassignments-search {
   position: relative;
-  flex: 1;
-  min-width: 240px;
+  width: 100%;
   display: flex;
   align-items: center;
 }
 
 .adminassignments-search-icon {
   position: absolute;
-  left: 14px;
+  left: 13px;
   color: #8a93a6;
   pointer-events: none;
 }
 
 .adminassignments-search input {
   width: 100%;
-  height: 44px;
+  height: 42px;
   box-sizing: border-box;
   border: 1px solid #e2e6ee;
-  border-radius: 10px;
-  padding: 0 42px 0 42px;
-  background: #ffffff;
-  color: #14213d;
+  border-radius: 9px;
+  padding: 0 40px 0 40px;
   font-size: 14px;
-  font-family: inherit;
+  color: #14213d;
+  background: #ffffff;
   outline: none;
+  font-family: inherit;
 }
 
 .adminassignments-search input::placeholder {
@@ -123,14 +126,15 @@
 }
 
 .adminassignments-filter-select {
-  height: 44px;
+  height: 40px;
   border: 1px solid #e2e6ee;
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 0 12px;
   font-size: 13.5px;
   color: #14213d;
   background: #ffffff;
   font-family: inherit;
+  cursor: pointer;
 }
 
 .adminassignments-filter-select:focus {
@@ -138,6 +142,84 @@
   border-color: #2f5ef5;
   box-shadow: 0 0 0 2px rgba(47, 94, 245, 0.08);
 }
+
+/* ---------------------------------------------------------
+   Date filters
+--------------------------------------------------------- */
+
+.adminassignments-date-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 120px;
+}
+
+.adminassignments-date-filter label {
+  font-size: 12px;
+  color: #6b7688;
+  font-weight: 600;
+}
+
+.adminassignments-date-input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.adminassignments-date-filter input {
+  height: 40px;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #e2e6ee;
+  border-radius: 8px;
+  padding: 0 10px;
+  font-size: 13.5px;
+  color: #14213d;
+  background: #ffffff;
+  font-family: inherit;
+  color-scheme: light;
+}
+
+.adminassignments-date-filter input.adminassignments-date-input-empty {
+  color: transparent;
+}
+
+.adminassignments-date-filter input:focus {
+  outline: none;
+  border-color: #2f5ef5;
+  box-shadow: 0 0 0 2px rgba(47, 94, 245, 0.08);
+}
+
+.adminassignments-date-placeholder {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #8a93a6;
+  font-size: 13.5px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.adminassignments-clear-filters {
+  height: 40px;
+  background: none;
+  border: none;
+  color: #2f5ef5;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.adminassignments-clear-filters:hover {
+  color: #2049d4;
+}
+
+/* ---------------------------------------------------------
+   Messages
+--------------------------------------------------------- */
 
 .adminassignments-empty {
   text-align: center;
@@ -155,6 +237,10 @@
   margin-bottom: 16px;
   text-align: center;
 }
+
+/* ---------------------------------------------------------
+   Assignment list
+--------------------------------------------------------- */
 
 .adminassignments-list {
   display: flex;
@@ -242,6 +328,10 @@
   color: #a6660b;
 }
 
+/* ---------------------------------------------------------
+   Mobile
+--------------------------------------------------------- */
+
 @media (max-width: 680px) {
   .adminassignments-page {
     padding: 18px;
@@ -251,14 +341,13 @@
     align-items: stretch;
   }
 
-  .adminassignments-search {
-    width: 100%;
-    min-width: 0;
-    flex-basis: 100%;
-  }
-
   .adminassignments-filter-select {
     width: 100%;
+  }
+
+  .adminassignments-date-filter {
+    flex: 1;
+    min-width: 120px;
   }
 
   .adminassignments-row {

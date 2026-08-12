@@ -255,7 +255,7 @@ function Documents() {
             aria-label="Filter by status"
           >
             <option value="">
-              All statuses
+              All Status
             </option>
 
             <option value="pending">

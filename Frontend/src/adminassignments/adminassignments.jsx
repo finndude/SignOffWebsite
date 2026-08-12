@@ -26,81 +26,103 @@ function AdminAssignments() {
   const [search, setSearch] =
     useState("");
 
+  const [sort, setSort] =
+    useState("newest");
+
   const [statusFilter, setStatusFilter] =
     useState("all");
 
-  useEffect(() => {
-    const trimmedSearch =
-      search.trim();
+  const [dateFrom, setDateFrom] =
+    useState("");
 
-    const timeout =
-      setTimeout(
-        async () => {
-          setIsLoading(true);
-          setError("");
+  const [dateTo, setDateTo] =
+    useState("");
 
-          try {
-            const params =
-              new URLSearchParams();
+  const loadAssignments = async () => {
+    setIsLoading(true);
+    setError("");
 
-            if (
-              trimmedSearch.length >= 2
-            ) {
-              params.set(
-                "search",
-                trimmedSearch
-              );
-            }
+    try {
+      const params =
+        new URLSearchParams();
 
-            if (
-              statusFilter !== "all"
-            ) {
-              params.set(
-                "status",
-                statusFilter
-              );
-            }
+      if (search.trim().length >= 2) {
+        params.set(
+          "search",
+          search.trim()
+        );
+      }
 
-            const queryString =
-              params.toString();
+      params.set("sort", sort);
 
-            const response =
-              await apiFetch(
-                queryString
-                  ? `/admin/assignments?${queryString}`
-                  : "/admin/assignments"
-              );
+      if (statusFilter !== "all") {
+        params.set(
+          "status",
+          statusFilter
+        );
+      }
 
-            if (!response.ok) {
-              throw new Error(
-                "Failed to load assignments."
-              );
-            }
+      if (dateFrom) {
+        params.set(
+          "date_from",
+          dateFrom
+        );
+      }
 
-            const data =
-              await response.json();
+      if (dateTo) {
+        params.set(
+          "date_to",
+          dateTo
+        );
+      }
 
-            setAssignments(
-              Array.isArray(data)
-                ? data
-                : []
-            );
-          } catch {
-            setError(
-              "Couldn't load assignments. Please try again."
-            );
-          } finally {
-            setIsLoading(false);
-          }
-        },
-        300
+      const queryString =
+        params.toString();
+
+      const response =
+        await apiFetch(
+          `/admin/assignments?${queryString}`
+        );
+
+      if (!response.ok) {
+        throw new Error(
+          "Failed to load assignments."
+        );
+      }
+
+      const data =
+        await response.json();
+
+      setAssignments(
+        Array.isArray(data)
+          ? data
+          : []
       );
+    } catch {
+      setError(
+        "Couldn't load assignments. Please try again."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const timeout =
+      setTimeout(() => {
+        loadAssignments();
+      }, 300);
 
     return () =>
       clearTimeout(timeout);
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     search,
+    sort,
     statusFilter,
+    dateFrom,
+    dateTo,
   ]);
 
   const formatDate = (
@@ -123,6 +145,11 @@ function AdminAssignments() {
     navigate(
       `/documents/${assignmentId}`
     );
+  };
+
+  const clearDates = () => {
+    setDateFrom("");
+    setDateTo("");
   };
 
   return (
@@ -158,6 +185,8 @@ function AdminAssignments() {
 
         <div className="adminassignments-filters">
 
+          {/* Search */}
+
           <div className="adminassignments-search">
             <Search
               size={18}
@@ -191,6 +220,29 @@ function AdminAssignments() {
             )}
           </div>
 
+          {/* Sort */}
+
+          <select
+            className="adminassignments-filter-select"
+            value={sort}
+            onChange={(e) =>
+              setSort(
+                e.target.value
+              )
+            }
+            aria-label="Sort assignments"
+          >
+            <option value="newest">
+              Newest first
+            </option>
+
+            <option value="oldest">
+              Oldest first
+            </option>
+          </select>
+
+          {/* Status */}
+
           <select
             className="adminassignments-filter-select"
             value={statusFilter}
@@ -199,14 +251,14 @@ function AdminAssignments() {
                 e.target.value
               )
             }
-            aria-label="Filter assignments by status"
+            aria-label="Filter by status"
           >
             <option value="all">
-              All statuses
+              All Status
             </option>
 
-            <option value="not_signed">
-              Not signed
+            <option value="pending">
+              Pending
             </option>
 
             <option value="signed">
@@ -214,6 +266,81 @@ function AdminAssignments() {
             </option>
           </select>
 
+          {/* From date */}
+
+          <div className="adminassignments-date-filter">
+            <label htmlFor="assignmentDateFrom">
+              From
+            </label>
+
+            <div className="adminassignments-date-input-wrapper">
+              {!dateFrom && (
+                <span className="adminassignments-date-placeholder">
+                  Select a date
+                </span>
+              )}
+
+              <input
+                id="assignmentDateFrom"
+                type="date"
+                value={dateFrom}
+                className={
+                  !dateFrom
+                    ? "adminassignments-date-input-empty"
+                    : ""
+                }
+                onChange={(e) =>
+                  setDateFrom(
+                    e.target.value
+                  )
+                }
+              />
+            </div>
+          </div>
+
+          {/* To date */}
+
+          <div className="adminassignments-date-filter">
+            <label htmlFor="assignmentDateTo">
+              To
+            </label>
+
+            <div className="adminassignments-date-input-wrapper">
+              {!dateTo && (
+                <span className="adminassignments-date-placeholder">
+                  Select a date
+                </span>
+              )}
+
+              <input
+                id="assignmentDateTo"
+                type="date"
+                value={dateTo}
+                className={
+                  !dateTo
+                    ? "adminassignments-date-input-empty"
+                    : ""
+                }
+                onChange={(e) =>
+                  setDateTo(
+                    e.target.value
+                  )
+                }
+              />
+            </div>
+          </div>
+
+          {/* Clear dates */}
+
+          {(dateFrom || dateTo) && (
+            <button
+              type="button"
+              className="adminassignments-clear-filters"
+              onClick={clearDates}
+            >
+              Clear dates
+            </button>
+          )}
         </div>
 
         {error && (
@@ -231,12 +358,12 @@ function AdminAssignments() {
           <p className="adminassignments-empty">
             {search.trim().length >= 2
               ? "No assignments matched your search."
-              : statusFilter ===
-                "signed"
-              ? "No signed-off assignments found."
-              : statusFilter ===
-                "not_signed"
-              ? "No unsigned assignments found."
+              : statusFilter !== "all"
+              ? statusFilter === "signed"
+                ? "No signed-off assignments found."
+                : "No unsigned assignments found."
+              : dateFrom || dateTo
+              ? "No assignments found for the selected dates."
               : "No assignments uploaded yet."}
           </p>
         ) : (
@@ -335,7 +462,6 @@ function AdminAssignments() {
             )}
           </div>
         )}
-
       </div>
     </div>
   );
