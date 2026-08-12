@@ -81,6 +81,10 @@
   padding: 0 10px;
   font-size: 13.5px;
   color: #14213d;
+  background: #ffffff;
+
+  /* Force the native iOS date control to use light styling */
+  color-scheme: light;
 }
 
 .documents-clear-filters {
