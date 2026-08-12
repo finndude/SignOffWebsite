@@ -105,7 +105,7 @@ function AddUsers() {
             onChange={(e) => setRole(e.target.value)}
             required
           >
-            <option value="assignee">Regular signer</option>
+            <option value="assignee">Regular Signer</option>
             <option value="admin">Admin</option>
           </select>
 

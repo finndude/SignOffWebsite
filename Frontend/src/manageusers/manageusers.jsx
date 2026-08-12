@@ -390,7 +390,7 @@ function ManageUsers() {
                       }
                     >
                       <option value="assignee">
-                        Regular signer
+                        Regular Signer
                       </option>
 
                       <option value="admin">
