@@ -91,6 +91,33 @@
   background: #ffffff;
 }
 
+/*
+ * When the date is empty, hide the browser's native
+ * dd/mm/yyyy placeholder so it doesn't overlap with
+ * our custom "Select a date" text.
+ *
+ * The calendar icon remains visible.
+ */
+.documents-date-filter input.documents-date-input-empty {
+  color: transparent;
+}
+
+/*
+ * Keep the native date picker light.
+ */
+.documents-date-filter input {
+  color-scheme: light;
+}
+
+.documents-date-filter input:focus {
+  outline: none;
+  border-color: #2f5ef5;
+  box-shadow: 0 0 0 2px rgba(47, 94, 245, 0.08);
+}
+
+/*
+ * Custom placeholder shown when no date is selected.
+ */
 .documents-date-placeholder {
   position: absolute;
   left: 10px;
@@ -100,17 +127,6 @@
   font-size: 13.5px;
   pointer-events: none;
   z-index: 1;
-}
-
-/* Keep the native iOS date picker light */
-.documents-date-filter input {
-  color-scheme: light;
-}
-
-.documents-date-filter input:focus {
-  outline: none;
-  border-color: #2f5ef5;
-  box-shadow: 0 0 0 2px rgba(47, 94, 245, 0.08);
 }
 
 .documents-clear-filters {

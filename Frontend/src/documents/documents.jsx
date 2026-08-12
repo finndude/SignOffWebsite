@@ -116,6 +116,11 @@ function Documents() {
                 id="dateFrom"
                 type="date"
                 value={dateFrom}
+                className={
+                  !dateFrom
+                    ? "documents-date-input-empty"
+                    : ""
+                }
                 onChange={(e) =>
                   setDateFrom(e.target.value)
                 }
@@ -139,6 +144,11 @@ function Documents() {
                 id="dateTo"
                 type="date"
                 value={dateTo}
+                className={
+                  !dateTo
+                    ? "documents-date-input-empty"
+                    : ""
+                }
                 onChange={(e) =>
                   setDateTo(e.target.value)
                 }
