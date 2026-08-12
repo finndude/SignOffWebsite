@@ -6,7 +6,6 @@ import {
   Trash2,
   Download,
   ExternalLink,
-  Printer,
 } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
@@ -26,7 +25,6 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
  * The viewer also provides:
  * - Download
  * - View in new tab
- * - Print
  */
 function PdfViewer({
   fileUrl,
@@ -45,7 +43,8 @@ function PdfViewer({
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
-  const [isFileActionLoading, setIsFileActionLoading] = useState(false);
+  const [isFileActionLoading, setIsFileActionLoading] =
+    useState(false);
 
   const [renderedPageSize, setRenderedPageSize] = useState({
     width: 0,
@@ -200,11 +199,7 @@ function PdfViewer({
   ]);
 
   /*
-   * Download the PDF using the authenticated session.
-   *
-   * We fetch the file with credentials first rather than relying
-   * on a normal browser link, because the PDF endpoint is protected
-   * by the authentication cookie.
+   * Fetch the PDF using the authenticated session.
    */
   const fetchPdfBlob = async () => {
     const response = await fetch(fileUrl, {
@@ -251,8 +246,8 @@ function PdfViewer({
   /*
    * Open PDF in a new browser tab.
    *
-   * The PDF is first fetched using the authenticated session and
-   * converted into a temporary blob URL.
+   * The PDF is fetched using the authenticated session
+   * and converted into a temporary blob URL.
    */
   const handleView = async () => {
     if (!fileUrl || isFileActionLoading) return;
@@ -260,8 +255,9 @@ function PdfViewer({
     setIsFileActionLoading(true);
 
     /*
-     * Open the tab immediately so mobile browsers do not block
-     * the new tab because of the asynchronous fetch.
+     * Open the tab immediately so mobile browsers
+     * do not block the new tab because of the
+     * asynchronous fetch.
      */
     const newWindow = window.open("", "_blank");
 
@@ -274,14 +270,15 @@ function PdfViewer({
         newWindow.location.href = blobUrl;
       } else {
         /*
-         * If the browser blocked the popup, fall back to the
-         * current tab.
+         * If the browser blocked the popup,
+         * fall back to the current tab.
          */
         window.location.href = blobUrl;
       }
 
       /*
-       * Give the new tab time to load the blob before revoking it.
+       * Give the new tab time to load the blob
+       * before revoking it.
        */
       setTimeout(() => {
         URL.revokeObjectURL(blobUrl);
@@ -294,103 +291,6 @@ function PdfViewer({
       }
 
       setError("Couldn't open this PDF.");
-    } finally {
-      setIsFileActionLoading(false);
-    }
-  };
-
-  /*
-   * Print PDF.
-   *
-   * The PDF is fetched with the authenticated session and opened
-   * in a temporary tab. The browser's print dialog is then triggered.
-   */
-  const handlePrint = async () => {
-    if (!fileUrl || isFileActionLoading) return;
-
-    setIsFileActionLoading(true);
-
-    /*
-     * Open the window immediately to avoid popup blocking.
-     */
-    const printWindow = window.open("", "_blank");
-
-    try {
-      if (!printWindow) {
-        throw new Error("Popup blocked.");
-      }
-
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Print Document</title>
-            <style>
-              html,
-              body {
-                margin: 0;
-                padding: 0;
-                width: 100%;
-                height: 100%;
-                overflow: hidden;
-                background: white;
-              }
-
-              iframe {
-                width: 100%;
-                height: 100%;
-                border: 0;
-              }
-            </style>
-          </head>
-          <body>
-            <p style="font-family: sans-serif; padding: 20px;">
-              Loading document…
-            </p>
-          </body>
-        </html>
-      `);
-
-      printWindow.document.close();
-
-      const blob = await fetchPdfBlob();
-
-      const blobUrl = URL.createObjectURL(blob);
-
-      printWindow.document.body.innerHTML = `
-        <iframe
-          src="${blobUrl}"
-          title="Printable document"
-        ></iframe>
-      `;
-
-      /*
-       * Give the PDF viewer time to load before printing.
-       */
-      setTimeout(() => {
-        try {
-          printWindow.focus();
-          printWindow.print();
-        } catch (err) {
-          console.error("Print dialog failed:", err);
-        }
-      }, 1000);
-
-      /*
-       * Keep the blob alive long enough for the browser's
-       * built-in PDF viewer to load it.
-       */
-      setTimeout(() => {
-        URL.revokeObjectURL(blobUrl);
-      }, 60000);
-    } catch (err) {
-      console.error("PDF print failed:", err);
-
-      if (printWindow) {
-        printWindow.close();
-      }
-
-      setError("Couldn't prepare this PDF for printing.");
     } finally {
       setIsFileActionLoading(false);
     }
@@ -796,19 +696,6 @@ function PdfViewer({
               strokeWidth={2}
             />
             View
-          </button>
-
-          <button
-            type="button"
-            className="pdfviewer-file-action"
-            onClick={handlePrint}
-            disabled={isFileActionLoading}
-          >
-            <Printer
-              size={15}
-              strokeWidth={2}
-            />
-            Print
           </button>
         </div>
       )}
