@@ -15,7 +15,7 @@ function Upload() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    apiFetch("/admin/users")
+    apiFetch("/admin/users/assignable")
       .then((res) => res.json())
       .then((data) => setUsers(Array.isArray(data) ? data : []))
       .catch(() => setUsers([]));

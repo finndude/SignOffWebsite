@@ -12,6 +12,7 @@ import AssignmentDetail from "./assignmentdetail/assignmentdetail";
 import Sign from "./sign/sign";
 import ProtectedRoute from "./routes/protectedroute";
 import DocumentViewer from "./documentviewer/documentviewer";
+import ManageUsers from "./manageusers/manageusers";
 
 function App() {
   return (
@@ -88,6 +89,14 @@ function App() {
           element={
             <ProtectedRoute requireRole="admin">
               <AdminAssignments />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <ProtectedRoute requireRole="admin">
+              <ManageUsers />
             </ProtectedRoute>
           }
         />
