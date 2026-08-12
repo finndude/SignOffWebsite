@@ -304,3 +304,67 @@
     height: 40px;
   }
 }
+
+.manage-users-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 24px;
+  padding-bottom: 8px;
+}
+
+.manage-users-pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.manage-users-pagination-button,
+.manage-users-pagination-page {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.manage-users-pagination-button {
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+}
+
+.manage-users-pagination-page {
+  width: 36px;
+  height: 36px;
+}
+
+.manage-users-pagination-button:hover:not(:disabled),
+.manage-users-pagination-page:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.manage-users-pagination-page.active {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.3);
+  font-weight: 600;
+}
+
+.manage-users-pagination-button:disabled,
+.manage-users-pagination-page:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.manage-users-pagination-ellipsis {
+  width: 24px;
+  text-align: center;
+  opacity: 0.6;
+}

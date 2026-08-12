@@ -1,4 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, {
+  useEffect,
+  useState,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -7,9 +10,13 @@ import {
   Clock,
   Search,
   X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { apiFetch } from "../utils/api";
 import "./documents.css";
+
+const PAGE_SIZE = 20;
 
 function Documents() {
   const navigate = useNavigate();
@@ -38,7 +45,23 @@ function Documents() {
   const [search, setSearch] =
     useState("");
 
-  const loadAssignments = async () => {
+  const [page, setPage] =
+    useState(1);
+
+  const [totalCount, setTotalCount] =
+    useState(0);
+
+  const totalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        totalCount / PAGE_SIZE
+      )
+    );
+
+  const loadAssignments = async (
+    requestedPage = page
+  ) => {
     setIsLoading(true);
     setError("");
 
@@ -46,6 +69,12 @@ function Documents() {
       const params =
         new URLSearchParams({
           sort,
+          page: String(
+            requestedPage
+          ),
+          page_size: String(
+            PAGE_SIZE
+          ),
         });
 
       const trimmedSearch =
@@ -95,11 +124,21 @@ function Documents() {
       const data =
         await response.json();
 
+      const total =
+        Number(
+          response.headers.get(
+            "X-Total-Count"
+          )
+        ) || 0;
+
       setAssignments(
         Array.isArray(data)
           ? data
           : []
       );
+
+      setTotalCount(total);
+      setPage(requestedPage);
 
     } catch {
       setError(
@@ -111,10 +150,27 @@ function Documents() {
     }
   };
 
+  /*
+   * Reset to page 1 whenever a filter,
+   * search or sort option changes.
+   */
+  useEffect(() => {
+    setPage(1);
+  }, [
+    sort,
+    status,
+    dateFrom,
+    dateTo,
+    search,
+  ]);
+
+  /*
+   * Load whenever the page or filters change.
+   */
   useEffect(() => {
     const timeout =
       setTimeout(() => {
-        loadAssignments();
+        loadAssignments(page);
       }, 300);
 
     return () =>
@@ -122,6 +178,7 @@ function Documents() {
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    page,
     sort,
     status,
     dateFrom,
@@ -160,6 +217,75 @@ function Documents() {
     setSearch("");
   };
 
+  const goToPage = (
+    nextPage
+  ) => {
+    if (
+      nextPage < 1 ||
+      nextPage > totalPages ||
+      nextPage === page
+    ) {
+      return;
+    }
+
+    setPage(nextPage);
+  };
+
+  const getPageNumbers = () => {
+    if (totalPages <= 7) {
+      return Array.from(
+        {
+          length: totalPages,
+        },
+        (_, index) =>
+          index + 1
+      );
+    }
+
+    const pages = [];
+
+    pages.push(1);
+
+    if (page > 4) {
+      pages.push("ellipsis-left");
+    }
+
+    const start =
+      Math.max(
+        2,
+        page - 1
+      );
+
+    const end =
+      Math.min(
+        totalPages - 1,
+        page + 1
+      );
+
+    for (
+      let number = start;
+      number <= end;
+      number++
+    ) {
+      pages.push(number);
+    }
+
+    if (
+      page <
+      totalPages - 3
+    ) {
+      pages.push(
+        "ellipsis-right"
+      );
+    }
+
+    pages.push(
+      totalPages
+    );
+
+    return pages;
+  };
+
   return (
     <div className="documents-page app-background">
       <div className="documents-container">
@@ -185,8 +311,6 @@ function Documents() {
         </div>
 
         <div className="documents-filters">
-
-          {/* Search */}
 
           <div className="documents-search">
             <Search
@@ -221,8 +345,6 @@ function Documents() {
             )}
           </div>
 
-          {/* Sort */}
-
           <select
             className="documents-filter-select"
             value={sort}
@@ -241,8 +363,6 @@ function Documents() {
               Oldest first
             </option>
           </select>
-
-          {/* Status */}
 
           <select
             className="documents-filter-select"
@@ -266,8 +386,6 @@ function Documents() {
               Signed
             </option>
           </select>
-
-          {/* From date */}
 
           <div className="documents-date-filter">
             <label htmlFor="dateFrom">
@@ -301,8 +419,6 @@ function Documents() {
             </div>
           </div>
 
-          {/* To date */}
-
           <div className="documents-date-filter">
             <label htmlFor="dateTo">
               To
@@ -335,8 +451,6 @@ function Documents() {
             </div>
           </div>
 
-          {/* Clear dates */}
-
           {(dateFrom ||
             dateTo) && (
             <button
@@ -349,8 +463,6 @@ function Documents() {
               Clear dates
             </button>
           )}
-
-          {/* Clear all filters */}
 
           {(status ||
             dateFrom ||
@@ -384,7 +496,6 @@ function Documents() {
           0 ? (
 
           <p className="documents-empty">
-
             {search.trim().length >=
             2
               ? "No documents matched your search."
@@ -393,105 +504,206 @@ function Documents() {
               : status === "pending"
               ? "No pending documents found."
               : "No documents assigned to you yet."}
-
           </p>
 
         ) : (
 
-          <div className="documents-list">
+          <>
+            <div className="documents-list">
 
-            {assignments.map(
-              (assignment) => (
+              {assignments.map(
+                (assignment) => (
 
-                <button
-                  key={assignment.id}
-                  type="button"
-                  className="documents-row"
-                  onClick={() =>
-                    navigate(
-                      `/documents/${assignment.id}`
-                    )
-                  }
-                >
-
-                  <div className="documents-row-icon">
-                    <FileStack
-                      size={20}
-                      strokeWidth={1.8}
-                    />
-                  </div>
-
-                  <div className="documents-row-info">
-
-                    <span className="documents-row-title">
-                      {assignment.title ||
-                        `${assignment.document_count} document${
-                          assignment.document_count !==
-                          1
-                            ? "s"
-                            : ""
-                        }`}
-                    </span>
-
-                    <span className="documents-row-meta">
-                      Assigned by{" "}
-                      {
-                        assignment.assigned_by_name
-                      }{" "}
-                      ·{" "}
-                      {formatDate(
-                        assignment.created_at
-                      )}
-                    </span>
-
-                  </div>
-
-                  <div
-                    className={`documents-row-status ${
-                      assignment.status ===
-                      "signed"
-                        ? "signed"
-                        : "pending"
-                    }`}
+                  <button
+                    key={assignment.id}
+                    type="button"
+                    className="documents-row"
+                    onClick={() =>
+                      navigate(
+                        `/documents/${assignment.id}`
+                      )
+                    }
                   >
 
-                    {assignment.status ===
-                    "signed" ? (
-                      <>
-                        <CheckCircle2
-                          size={14}
-                          strokeWidth={2}
-                        />
-                        Signed
-                      </>
-                    ) : (
-                      <>
-                        <Clock
-                          size={14}
-                          strokeWidth={2}
-                        />
+                    <div className="documents-row-icon">
+                      <FileStack
+                        size={20}
+                        strokeWidth={1.8}
+                      />
+                    </div>
 
+                    <div className="documents-row-info">
+
+                      <span className="documents-row-title">
+                        {assignment.title ||
+                          `${assignment.document_count} document${
+                            assignment.document_count !==
+                            1
+                              ? "s"
+                              : ""
+                          }`}
+                      </span>
+
+                      <span className="documents-row-meta">
+                        Assigned by{" "}
                         {
-                          assignment.signed_count
-                        }
-
-                        /
-
-                        {
-                          assignment.document_count
+                          assignment.assigned_by_name
                         }{" "}
-                        signed
-                      </>
-                    )}
+                        ·{" "}
+                        {formatDate(
+                          assignment.created_at
+                        )}
+                      </span>
 
-                  </div>
+                    </div>
 
+                    <div
+                      className={`documents-row-status ${
+                        assignment.status ===
+                        "signed"
+                          ? "signed"
+                          : "pending"
+                      }`}
+                    >
+
+                      {assignment.status ===
+                      "signed" ? (
+                        <>
+                          <CheckCircle2
+                            size={14}
+                            strokeWidth={2}
+                          />
+                          Signed
+                        </>
+                      ) : (
+                        <>
+                          <Clock
+                            size={14}
+                            strokeWidth={2}
+                          />
+
+                          {
+                            assignment.signed_count
+                          }
+
+                          /
+
+                          {
+                            assignment.document_count
+                          }{" "}
+                          signed
+                        </>
+                      )}
+
+                    </div>
+
+                  </button>
+                )
+              )}
+
+            </div>
+
+            {totalPages > 1 && (
+              <div className="documents-pagination">
+
+                <button
+                  type="button"
+                  className="documents-pagination-button"
+                  onClick={() =>
+                    goToPage(
+                      page - 1
+                    )
+                  }
+                  disabled={
+                    page === 1 ||
+                    isLoading
+                  }
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft
+                    size={16}
+                  />
+
+                  Previous
                 </button>
 
-              )
+                <div className="documents-pagination-pages">
+
+                  {getPageNumbers().map(
+                    (pageNumber) =>
+                      typeof pageNumber ===
+                      "string" ? (
+                        <span
+                          key={
+                            pageNumber
+                          }
+                          className="documents-pagination-ellipsis"
+                        >
+                          …
+                        </span>
+                      ) : (
+                        <button
+                          key={
+                            pageNumber
+                          }
+                          type="button"
+                          className={`documents-pagination-page ${
+                            pageNumber ===
+                            page
+                              ? "active"
+                              : ""
+                          }`}
+                          onClick={() =>
+                            goToPage(
+                              pageNumber
+                            )
+                          }
+                          disabled={
+                            isLoading
+                          }
+                          aria-label={`Page ${pageNumber}`}
+                          aria-current={
+                            pageNumber ===
+                            page
+                              ? "page"
+                              : undefined
+                          }
+                        >
+                          {
+                            pageNumber
+                          }
+                        </button>
+                      )
+                  )}
+
+                </div>
+
+                <button
+                  type="button"
+                  className="documents-pagination-button"
+                  onClick={() =>
+                    goToPage(
+                      page + 1
+                    )
+                  }
+                  disabled={
+                    page ===
+                      totalPages ||
+                    isLoading
+                  }
+                  aria-label="Next page"
+                >
+                  Next
+
+                  <ChevronRight
+                    size={16}
+                  />
+                </button>
+
+              </div>
             )}
 
-          </div>
+          </>
         )}
 
       </div>

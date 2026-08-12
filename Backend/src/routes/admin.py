@@ -9,6 +9,7 @@ from fastapi import (
     Form,
     HTTPException,
     Query,
+    Response,
     UploadFile,
     status,
 )
@@ -63,6 +64,9 @@ router = APIRouter(
 )
 
 
+PAGE_SIZE = 20
+
+
 def require_admin(
     current_user: User = Depends(
         get_current_user
@@ -76,7 +80,10 @@ def require_admin(
     if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admins can perform this action.",
+            detail=(
+                "Only admins can perform "
+                "this action."
+            ),
         )
 
     return current_user
@@ -102,7 +109,10 @@ def invite_user(
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="A user with that email already exists.",
+            detail=(
+                "A user with that email "
+                "already exists."
+            ),
         )
 
     placeholder_password = (
@@ -128,7 +138,8 @@ def invite_user(
     )
 
     invite_link = (
-        f"{settings.frontend_url}/activate-account"
+        f"{settings.frontend_url}"
+        f"/activate-account"
         f"?token={invite_token}"
     )
 
@@ -141,20 +152,24 @@ def invite_user(
 
     except Exception as e:
         print(
-            f"[invite email failed] "
+            "[invite email failed] "
             f"{type(e).__name__}: {e}"
         )
 
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=(
-                "User was created, but the invite email "
-                "failed to send."
+                "User was created, but "
+                "the invite email failed "
+                "to send."
             ),
         )
 
     return {
-        "detail": f"Invite sent to {new_user.email}."
+        "detail": (
+            f"Invite sent to "
+            f"{new_user.email}."
+        )
     }
 
 
@@ -165,6 +180,7 @@ def invite_user(
     ],
 )
 def list_admin_assignments(
+    response: Response,
     search: str | None = Query(None),
     sort: str = Query(
         "newest",
@@ -177,6 +193,15 @@ def list_admin_assignments(
     ),
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
+    page: int = Query(
+        1,
+        ge=1,
+    ),
+    page_size: int = Query(
+        PAGE_SIZE,
+        ge=1,
+        le=20,
+    ),
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
@@ -187,6 +212,10 @@ def list_admin_assignments(
             == admin.id
         )
     )
+
+    # ---------------------------------------------------------
+    # Search
+    # ---------------------------------------------------------
 
     if search:
         search = search.strip()
@@ -212,11 +241,19 @@ def list_admin_assignments(
                 )
             )
 
+    # ---------------------------------------------------------
+    # Status
+    # ---------------------------------------------------------
+
     if status_filter:
         query = query.filter(
             Assignment.status
             == status_filter
         )
+
+    # ---------------------------------------------------------
+    # Dates
+    # ---------------------------------------------------------
 
     if date_from:
         query = query.filter(
@@ -236,6 +273,28 @@ def list_admin_assignments(
             )
         )
 
+    # ---------------------------------------------------------
+    # Total
+    # ---------------------------------------------------------
+
+    total_count = query.count()
+
+    response.headers[
+        "X-Total-Count"
+    ] = str(total_count)
+
+    response.headers[
+        "X-Page"
+    ] = str(page)
+
+    response.headers[
+        "X-Page-Size"
+    ] = str(page_size)
+
+    # ---------------------------------------------------------
+    # Sorting
+    # ---------------------------------------------------------
+
     if sort == "oldest":
         query = query.order_by(
             Assignment.created_at.asc()
@@ -245,7 +304,20 @@ def list_admin_assignments(
             Assignment.created_at.desc()
         )
 
-    assignments = query.all()
+    # ---------------------------------------------------------
+    # Pagination
+    # ---------------------------------------------------------
+
+    offset = (
+        page - 1
+    ) * page_size
+
+    assignments = (
+        query
+        .offset(offset)
+        .limit(page_size)
+        .all()
+    )
 
     results = []
 
@@ -256,7 +328,8 @@ def list_admin_assignments(
 
         signed_count = sum(
             1
-            for document in assignment.documents
+            for document
+            in assignment.documents
             if document.is_signed
         )
 
@@ -293,18 +366,12 @@ def rename_assignment(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """
-    Rename an existing assignment.
-
-    Only assignments created by the current
-    admin can be renamed.
-    """
-
     assignment = (
         db.query(Assignment)
         .filter(
             Assignment.id == assignment_id,
-            Assignment.assigned_by_id == admin.id,
+            Assignment.assigned_by_id
+            == admin.id,
         )
         .first()
     )
@@ -320,7 +387,10 @@ def rename_assignment(
     if not new_title:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Assignment title cannot be empty.",
+            detail=(
+                "Assignment title "
+                "cannot be empty."
+            ),
         )
 
     if len(new_title) > 120:
@@ -343,7 +413,8 @@ def rename_assignment(
 
     signed_count = sum(
         1
-        for document in assignment.documents
+        for document
+        in assignment.documents
         if document.is_signed
     )
 
@@ -376,21 +447,12 @@ def change_assignment_assignee(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """
-    Change the user assigned to an existing assignment.
-
-    Only assignments created by the current admin
-    can be changed.
-
-    Existing documents and signing progress
-    are preserved.
-    """
-
     assignment = (
         db.query(Assignment)
         .filter(
             Assignment.id == assignment_id,
-            Assignment.assigned_by_id == admin.id,
+            Assignment.assigned_by_id
+            == admin.id,
         )
         .first()
     )
@@ -413,15 +475,18 @@ def change_assignment_assignee(
     if not new_assignee:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Selected assignee does not exist.",
+            detail=(
+                "Selected assignee "
+                "does not exist."
+            ),
         )
 
     if new_assignee.role != "assignee":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                "Assignments can only be assigned "
-                "to regular signers."
+                "Assignments can only be "
+                "assigned to regular signers."
             ),
         )
 
@@ -438,7 +503,8 @@ def change_assignment_assignee(
 
     signed_count = sum(
         1
-        for document in assignment.documents
+        for document
+        in assignment.documents
         if document.is_signed
     )
 
@@ -469,23 +535,12 @@ def delete_assignment(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """
-    Permanently delete an assignment.
-
-    Only assignments created by the current
-    admin can be deleted.
-
-    Associated documents are deleted through
-    the SQLAlchemy relationship cascade, and
-    their corresponding storage objects are
-    also removed.
-    """
-
     assignment = (
         db.query(Assignment)
         .filter(
             Assignment.id == assignment_id,
-            Assignment.assigned_by_id == admin.id,
+            Assignment.assigned_by_id
+            == admin.id,
         )
         .first()
     )
@@ -508,7 +563,9 @@ def delete_assignment(
                 document.storage_key
             )
 
-        if document.signature_storage_key:
+        if (
+            document.signature_storage_key
+        ):
             storage_keys.append(
                 document.signature_storage_key
             )
@@ -523,16 +580,17 @@ def delete_assignment(
         db.rollback()
 
         print(
-            f"[assignment storage deletion failed] "
-            f"{type(e).__name__}: {e}"
+            "[assignment storage deletion "
+            f"failed] {type(e).__name__}: {e}"
         )
 
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=(
-                "The assignment could not be deleted "
-                "because one or more files could not "
-                "be removed from storage."
+                "The assignment could not "
+                "be deleted because one or "
+                "more files could not be "
+                "removed from storage."
             ),
         )
 
@@ -540,7 +598,9 @@ def delete_assignment(
     db.commit()
 
     return {
-        "detail": "Assignment deleted successfully."
+        "detail": (
+            "Assignment deleted successfully."
+        )
     }
 
 
@@ -549,7 +609,17 @@ def delete_assignment(
     response_model=list[AdminUserResponse],
 )
 def list_all_users(
+    response: Response,
     search: str | None = Query(None),
+    page: int = Query(
+        1,
+        ge=1,
+    ),
+    page_size: int = Query(
+        PAGE_SIZE,
+        ge=1,
+        le=20,
+    ),
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
@@ -574,11 +644,41 @@ def list_all_users(
                 )
             )
 
-    return (
+    # ---------------------------------------------------------
+    # Total count
+    # ---------------------------------------------------------
+
+    total_count = query.count()
+
+    response.headers[
+        "X-Total-Count"
+    ] = str(total_count)
+
+    response.headers[
+        "X-Page"
+    ] = str(page)
+
+    response.headers[
+        "X-Page-Size"
+    ] = str(page_size)
+
+    # ---------------------------------------------------------
+    # Sorting + pagination
+    # ---------------------------------------------------------
+
+    users = (
         query
-        .order_by(User.name.asc())
+        .order_by(
+            User.name.asc()
+        )
+        .offset(
+            (page - 1) * page_size
+        )
+        .limit(page_size)
         .all()
     )
+
+    return users
 
 
 @router.patch(
@@ -594,7 +694,10 @@ def update_user_role(
     if user_id == admin.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="You cannot change your own role.",
+            detail=(
+                "You cannot change "
+                "your own role."
+            ),
         )
 
     user = (
@@ -668,7 +771,9 @@ def list_assignable_users(
 
     return (
         query
-        .order_by(User.name.asc())
+        .order_by(
+            User.name.asc()
+        )
         .limit(50)
         .all()
     )
@@ -690,7 +795,9 @@ async def upload_documents(
     if not title:
         raise HTTPException(
             status_code=400,
-            detail="Upload title is required.",
+            detail=(
+                "Upload title is required."
+            ),
         )
 
     if len(title) > 120:
@@ -719,15 +826,18 @@ async def upload_documents(
     if not assignee:
         raise HTTPException(
             status_code=404,
-            detail="Selected assignee does not exist.",
+            detail=(
+                "Selected assignee "
+                "does not exist."
+            ),
         )
 
     if assignee.role != "assignee":
         raise HTTPException(
             status_code=400,
             detail=(
-                "Documents can only be assigned "
-                "to regular signers."
+                "Documents can only be "
+                "assigned to regular signers."
             ),
         )
 
@@ -747,21 +857,27 @@ async def upload_documents(
 
     for upload in files:
 
-        if upload.content_type != "application/pdf":
+        if (
+            upload.content_type
+            != "application/pdf"
+        ):
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    f"'{upload.filename}' isn't a PDF. "
-                    "Only PDF files are supported."
+                    f"'{upload.filename}' "
+                    "isn't a PDF. Only PDF "
+                    "files are supported."
                 ),
             )
 
         file_bytes = await upload.read()
 
-        storage_key = upload_file_to_storage(
-            file_bytes,
-            upload.filename,
-            upload.content_type,
+        storage_key = (
+            upload_file_to_storage(
+                file_bytes,
+                upload.filename,
+                upload.content_type,
+            )
         )
 
         document = Document(
@@ -786,20 +902,25 @@ async def upload_documents(
             assignee.name,
             [
                 doc.filename
-                for doc in created_documents
+                for doc
+                in created_documents
             ],
-            f"{settings.frontend_url}/dashboard",
+            (
+                f"{settings.frontend_url}"
+                "/dashboard"
+            ),
         )
 
     except Exception as e:
         print(
-            f"[assignment email failed] "
+            "[assignment email failed] "
             f"{type(e).__name__}: {e}"
         )
 
     return {
         "detail": (
-            f"{len(created_documents)} document(s) "
-            f"assigned to {assignee.name}."
+            f"{len(created_documents)} "
+            f"document(s) assigned to "
+            f"{assignee.name}."
         ),
     }

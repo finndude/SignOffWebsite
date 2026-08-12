@@ -2,8 +2,16 @@ import base64
 import io
 from datetime import datetime, date
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    Response,
+    status,
+)
 from fastapi.responses import StreamingResponse
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from PIL import Image
 from pypdf import PdfReader, PdfWriter
@@ -37,11 +45,16 @@ router = APIRouter(
 )
 
 
+PAGE_SIZE = 20
+
+
 @router.get(
     "",
     response_model=list[AssignmentListItem],
 )
 def list_my_assignments(
+    response: Response,
+    search: str | None = Query(None),
     sort: str = Query(
         "newest",
         pattern="^(newest|oldest)$",
@@ -53,6 +66,15 @@ def list_my_assignments(
     ),
     date_from: date | None = None,
     date_to: date | None = None,
+    page: int = Query(
+        1,
+        ge=1,
+    ),
+    page_size: int = Query(
+        PAGE_SIZE,
+        ge=1,
+        le=20,
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -60,14 +82,53 @@ def list_my_assignments(
     Every assignment assigned to the current user.
 
     Supports:
+    - Search
     - Newest / oldest sorting
     - Pending / signed status filtering
     - Date range filtering
+    - Server-side pagination
+
+    Pagination information is returned through
+    the X-Total-Count response header.
     """
 
-    query = db.query(Assignment).filter(
-        Assignment.assigned_to_id == current_user.id
+    query = (
+        db.query(Assignment)
+        .filter(
+            Assignment.assigned_to_id
+            == current_user.id
+        )
     )
+
+    # ---------------------------------------------------------
+    # Search
+    # ---------------------------------------------------------
+
+    if search:
+        search = search.strip()
+
+        if len(search) >= 2:
+            search_term = f"%{search}%"
+
+            query = (
+                query
+                .join(
+                    Assignment.assigned_by
+                )
+                .filter(
+                    or_(
+                        Assignment.title.ilike(
+                            search_term
+                        ),
+                        User.name.ilike(
+                            search_term
+                        ),
+                        User.email.ilike(
+                            search_term
+                        ),
+                    )
+                )
+            )
 
     # ---------------------------------------------------------
     # Status filter
@@ -75,7 +136,8 @@ def list_my_assignments(
 
     if status_filter:
         query = query.filter(
-            Assignment.status == status_filter
+            Assignment.status
+            == status_filter
         )
 
     # ---------------------------------------------------------
@@ -101,6 +163,24 @@ def list_my_assignments(
         )
 
     # ---------------------------------------------------------
+    # Total count BEFORE pagination
+    # ---------------------------------------------------------
+
+    total_count = query.count()
+
+    response.headers["X-Total-Count"] = str(
+        total_count
+    )
+
+    response.headers["X-Page"] = str(
+        page
+    )
+
+    response.headers["X-Page-Size"] = str(
+        page_size
+    )
+
+    # ---------------------------------------------------------
     # Sorting
     # ---------------------------------------------------------
 
@@ -110,7 +190,20 @@ def list_my_assignments(
         else Assignment.created_at.asc()
     )
 
-    assignments = query.all()
+    # ---------------------------------------------------------
+    # Pagination
+    # ---------------------------------------------------------
+
+    offset = (
+        page - 1
+    ) * page_size
+
+    assignments = (
+        query
+        .offset(offset)
+        .limit(page_size)
+        .all()
+    )
 
     results = []
 
@@ -131,7 +224,9 @@ def list_my_assignments(
                 title=assignment.title,
                 status=assignment.status,
                 created_at=assignment.created_at,
-                assigned_by_name=assignment.assigned_by.name,
+                assigned_by_name=(
+                    assignment.assigned_by.name
+                ),
                 document_count=doc_count,
                 signed_count=signed_count,
             )
@@ -164,7 +259,10 @@ def _get_owned_assignment(
             detail="Assignment not found.",
         )
 
-    if assignment.assigned_to_id != current_user.id:
+    if (
+        assignment.assigned_to_id
+        != current_user.id
+    ):
         raise HTTPException(
             status_code=403,
             detail="This assignment isn't yours.",
@@ -198,12 +296,17 @@ def _get_viewable_assignment(
         )
 
     if (
-        assignment.assigned_to_id != current_user.id
-        and assignment.assigned_by_id != current_user.id
+        assignment.assigned_to_id
+        != current_user.id
+        and assignment.assigned_by_id
+        != current_user.id
     ):
         raise HTTPException(
             status_code=403,
-            detail="You don't have access to this assignment.",
+            detail=(
+                "You don't have access "
+                "to this assignment."
+            ),
         )
 
     return assignment
@@ -256,7 +359,8 @@ def download_document(
         (
             document
             for document in assignment.documents
-            if str(document.id) == document_id
+            if str(document.id)
+            == document_id
         ),
         None,
     )
@@ -264,7 +368,10 @@ def download_document(
     if not document:
         raise HTTPException(
             status_code=404,
-            detail="Document not found in this assignment.",
+            detail=(
+                "Document not found "
+                "in this assignment."
+            ),
         )
 
     return DocumentDownloadResponse(
@@ -293,7 +400,8 @@ def view_document_file(
         (
             document
             for document in assignment.documents
-            if str(document.id) == document_id
+            if str(document.id)
+            == document_id
         ),
         None,
     )
@@ -301,7 +409,10 @@ def view_document_file(
     if not document:
         raise HTTPException(
             status_code=404,
-            detail="Document not found in this assignment.",
+            detail=(
+                "Document not found "
+                "in this assignment."
+            ),
         )
 
     try:
@@ -312,7 +423,10 @@ def view_document_file(
     except Exception:
         raise HTTPException(
             status_code=502,
-            detail="Couldn't load this file from storage.",
+            detail=(
+                "Couldn't load this file "
+                "from storage."
+            ),
         )
 
     headers = {
@@ -321,7 +435,12 @@ def view_document_file(
         ),
     }
 
-    if stored_file.get("ContentLength") is not None:
+    if (
+        stored_file.get(
+            "ContentLength"
+        )
+        is not None
+    ):
         headers["Content-Length"] = str(
             stored_file["ContentLength"]
         )
@@ -329,7 +448,9 @@ def view_document_file(
     return StreamingResponse(
         stored_file["Body"],
         media_type=(
-            stored_file.get("ContentType")
+            stored_file.get(
+                "ContentType"
+            )
             or "application/pdf"
         ),
         headers=headers,
@@ -357,7 +478,8 @@ def sign_document(
         (
             document
             for document in assignment.documents
-            if str(document.id) == document_id
+            if str(document.id)
+            == document_id
         ),
         None,
     )
@@ -365,13 +487,19 @@ def sign_document(
     if not document:
         raise HTTPException(
             status_code=404,
-            detail="Document not found in this assignment.",
+            detail=(
+                "Document not found "
+                "in this assignment."
+            ),
         )
 
     if not payload.signatures:
         raise HTTPException(
             status_code=400,
-            detail="Please place your signature on at least one page.",
+            detail=(
+                "Please place your signature "
+                "on at least one page."
+            ),
         )
 
     # ---------------------------------------------------------
@@ -379,7 +507,8 @@ def sign_document(
     # ---------------------------------------------------------
 
     raw_data = (
-        payload.signature_data_url.split(",")[-1]
+        payload.signature_data_url
+        .split(",")[-1]
     )
 
     try:
@@ -397,14 +526,14 @@ def sign_document(
             detail="Signature data is invalid.",
         )
 
-    # Store the original signature image.
-
-    signature_key = upload_signature_to_storage(
-        image_bytes
+    signature_key = (
+        upload_signature_to_storage(
+            image_bytes
+        )
     )
 
     # ---------------------------------------------------------
-    # Download the original PDF
+    # Download original PDF
     # ---------------------------------------------------------
 
     try:
@@ -419,7 +548,10 @@ def sign_document(
     except Exception:
         raise HTTPException(
             status_code=502,
-            detail="Couldn't load this document from storage.",
+            detail=(
+                "Couldn't load this document "
+                "from storage."
+            ),
         )
 
     # ---------------------------------------------------------
@@ -428,7 +560,9 @@ def sign_document(
 
     try:
         reader = PdfReader(
-            io.BytesIO(original_pdf_bytes)
+            io.BytesIO(
+                original_pdf_bytes
+            )
         )
 
         writer = PdfWriter()
@@ -448,11 +582,14 @@ def sign_document(
 
     for signature in payload.signatures:
 
-        page_number = signature.page_number
+        page_number = (
+            signature.page_number
+        )
 
         if (
             page_number < 0
-            or page_number >= len(reader.pages)
+            or page_number
+            >= len(reader.pages)
         ):
             raise HTTPException(
                 status_code=400,
@@ -462,11 +599,9 @@ def sign_document(
                 ),
             )
 
-        page = writer.pages[page_number]
-
-        # -----------------------------------------------------
-        # Get the REAL PDF page dimensions
-        # -----------------------------------------------------
+        page = writer.pages[
+            page_number
+        ]
 
         pdf_page_width = float(
             page.mediabox.width
@@ -476,28 +611,17 @@ def sign_document(
             page.mediabox.height
         )
 
-        # -----------------------------------------------------
-        # Validate frontend page dimensions
-        # -----------------------------------------------------
-
         if (
             signature.page_width <= 0
             or signature.page_height <= 0
         ):
             raise HTTPException(
                 status_code=400,
-                detail="Invalid rendered page dimensions.",
+                detail=(
+                    "Invalid rendered "
+                    "page dimensions."
+                ),
             )
-
-        # -----------------------------------------------------
-        # Convert frontend coordinates to PDF coordinates
-        #
-        # Frontend:
-        #   origin = top-left
-        #
-        # PDF:
-        #   origin = bottom-left
-        # -----------------------------------------------------
 
         scale_x = (
             pdf_page_width
@@ -510,34 +634,35 @@ def sign_document(
         )
 
         pdf_x = (
-            signature.x * scale_x
+            signature.x
+            * scale_x
         )
 
         pdf_width = (
-            signature.width * scale_x
+            signature.width
+            * scale_x
         )
 
         pdf_height = (
-            signature.height * scale_y
+            signature.height
+            * scale_y
         )
 
         pdf_y = (
             pdf_page_height
             - (
-                signature.y * scale_y
+                signature.y
+                * scale_y
             )
             - pdf_height
         )
-
-        # -----------------------------------------------------
-        # Safety: keep signature inside PDF page
-        # -----------------------------------------------------
 
         pdf_x = max(
             0,
             min(
                 pdf_x,
-                pdf_page_width - pdf_width,
+                pdf_page_width
+                - pdf_width,
             ),
         )
 
@@ -545,13 +670,10 @@ def sign_document(
             0,
             min(
                 pdf_y,
-                pdf_page_height - pdf_height,
+                pdf_page_height
+                - pdf_height,
             ),
         )
-
-        # -----------------------------------------------------
-        # Create transparent PDF overlay
-        # -----------------------------------------------------
 
         overlay_buffer = io.BytesIO()
 
@@ -563,8 +685,10 @@ def sign_document(
             ),
         )
 
-        signature_image_reader = ImageReader(
-            signature_image
+        signature_image_reader = (
+            ImageReader(
+                signature_image
+            )
         )
 
         overlay.drawImage(
@@ -585,10 +709,6 @@ def sign_document(
             overlay_buffer
         )
 
-        # -----------------------------------------------------
-        # Merge signature onto correct page
-        # -----------------------------------------------------
-
         page.merge_page(
             signature_pdf.pages[0]
         )
@@ -608,7 +728,7 @@ def sign_document(
     )
 
     # ---------------------------------------------------------
-    # OVERWRITE ORIGINAL PDF
+    # Overwrite original PDF
     # ---------------------------------------------------------
 
     try:
@@ -621,7 +741,10 @@ def sign_document(
     except Exception:
         raise HTTPException(
             status_code=502,
-            detail="Couldn't save the signed document to storage.",
+            detail=(
+                "Couldn't save the signed "
+                "document to storage."
+            ),
         )
 
     # ---------------------------------------------------------
@@ -633,7 +756,9 @@ def sign_document(
     )
 
     document.is_signed = True
-    document.signed_at = datetime.utcnow()
+    document.signed_at = (
+        datetime.utcnow()
+    )
 
     db.commit()
     db.refresh(document)
@@ -661,7 +786,8 @@ def confirm_assignment(
 
     unsigned = [
         document
-        for document in assignment.documents
+        for document
+        in assignment.documents
         if not document.is_signed
     ]
 
@@ -669,8 +795,9 @@ def confirm_assignment(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                f"{len(unsigned)} document(s) still need "
-                "to be signed before confirming."
+                f"{len(unsigned)} document(s) "
+                "still need to be signed "
+                "before confirming."
             ),
         )
 
@@ -684,16 +811,21 @@ def confirm_assignment(
             current_user.name,
             [
                 document.filename
-                for document in assignment.documents
+                for document
+                in assignment.documents
             ],
         )
 
     except Exception as e:
         print(
-            f"[signing confirmation email failed] "
+            "[signing confirmation "
+            f"email failed] "
             f"{type(e).__name__}: {e}"
         )
 
     return ConfirmAssignmentResponse(
-        detail="All documents confirmed as signed."
+        detail=(
+            "All documents confirmed "
+            "as signed."
+        )
     )

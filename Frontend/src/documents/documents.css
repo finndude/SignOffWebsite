@@ -336,3 +336,67 @@
     padding: 0;
   }
 }
+
+.documents-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 24px;
+  padding-bottom: 8px;
+}
+
+.documents-pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.documents-pagination-button,
+.documents-pagination-page {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.documents-pagination-button {
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+}
+
+.documents-pagination-page {
+  width: 36px;
+  height: 36px;
+}
+
+.documents-pagination-button:hover:not(:disabled),
+.documents-pagination-page:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.documents-pagination-page.active {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.3);
+  font-weight: 600;
+}
+
+.documents-pagination-button:disabled,
+.documents-pagination-page:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.documents-pagination-ellipsis {
+  width: 24px;
+  text-align: center;
+  opacity: 0.6;
+}

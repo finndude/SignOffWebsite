@@ -10,9 +10,13 @@ import {
   Users,
   Search,
   X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { apiFetch } from "../utils/api";
 import "./manageusers.css";
+
+const PAGE_SIZE = 20;
 
 function ManageUsers() {
   const navigate = useNavigate();
@@ -35,8 +39,23 @@ function ManageUsers() {
   const [search, setSearch] =
     useState("");
 
+  const [page, setPage] =
+    useState(1);
+
+  const [totalCount, setTotalCount] =
+    useState(0);
+
+  const totalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        totalCount / PAGE_SIZE
+      )
+    );
+
   const loadUsers = async (
-    searchValue = ""
+    searchValue = "",
+    requestedPage = page
   ) => {
     setIsLoading(true);
     setError("");
@@ -75,14 +94,19 @@ function ManageUsers() {
         );
       }
 
-      const queryString =
-        params.toString();
+      params.set(
+        "page",
+        String(requestedPage)
+      );
+
+      params.set(
+        "page_size",
+        String(PAGE_SIZE)
+      );
 
       const usersResponse =
         await apiFetch(
-          queryString
-            ? `/admin/users?${queryString}`
-            : "/admin/users"
+          `/admin/users?${params.toString()}`
         );
 
       if (!usersResponse.ok) {
@@ -100,32 +124,60 @@ function ManageUsers() {
       const data =
         await usersResponse.json();
 
+      const total =
+        Number(
+          usersResponse.headers.get(
+            "X-Total-Count"
+          )
+        ) || 0;
+
       setUsers(
         Array.isArray(data)
           ? data
           : []
       );
+
+      setTotalCount(total);
+      setPage(requestedPage);
+
     } catch (err) {
       setError(
         err.message ||
           "Couldn't load users. Please try again."
       );
+
     } finally {
       setIsLoading(false);
     }
   };
 
+  /*
+   * Reset to first page when searching.
+   */
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  /*
+   * Load whenever search or page changes.
+   */
   useEffect(() => {
     const timeout =
       setTimeout(() => {
-        loadUsers(search);
+        loadUsers(
+          search,
+          page
+        );
       }, 300);
 
     return () =>
       clearTimeout(timeout);
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
+  }, [
+    search,
+    page,
+  ]);
 
   const handleRoleChange = async (
     user,
@@ -181,11 +233,13 @@ function ManageUsers() {
                 : currentUser
           )
       );
+
     } catch (err) {
       setError(
         err.message ||
           "Couldn't update the user's role."
       );
+
     } finally {
       setSavingUserId(null);
     }
@@ -210,10 +264,81 @@ function ManageUsers() {
     );
   };
 
+  const goToPage = (
+    nextPage
+  ) => {
+    if (
+      nextPage < 1 ||
+      nextPage > totalPages ||
+      nextPage === page
+    ) {
+      return;
+    }
+
+    setPage(nextPage);
+  };
+
+  const getPageNumbers = () => {
+    if (totalPages <= 7) {
+      return Array.from(
+        {
+          length: totalPages,
+        },
+        (_, index) =>
+          index + 1
+      );
+    }
+
+    const pages = [1];
+
+    if (page > 4) {
+      pages.push(
+        "ellipsis-left"
+      );
+    }
+
+    const start =
+      Math.max(
+        2,
+        page - 1
+      );
+
+    const end =
+      Math.min(
+        totalPages - 1,
+        page + 1
+      );
+
+    for (
+      let number = start;
+      number <= end;
+      number++
+    ) {
+      pages.push(number);
+    }
+
+    if (
+      page <
+      totalPages - 3
+    ) {
+      pages.push(
+        "ellipsis-right"
+      );
+    }
+
+    pages.push(
+      totalPages
+    );
+
+    return pages;
+  };
+
   return (
     <div className="manage-users-page app-background">
       <div className="manage-users-container">
+
         <div className="manage-users-header">
+
           <button
             type="button"
             className="manage-users-back"
@@ -229,6 +354,7 @@ function ManageUsers() {
           </button>
 
           <div>
+
             <span className="manage-users-kicker">
               Admin
             </span>
@@ -240,10 +366,13 @@ function ManageUsers() {
             <p className="manage-users-subtitle">
               Manage user access and roles.
             </p>
+
           </div>
+
         </div>
 
         <div className="manage-users-search">
+
           <Search
             size={18}
             strokeWidth={1.8}
@@ -274,6 +403,7 @@ function ManageUsers() {
               <X size={16} />
             </button>
           )}
+
         </div>
 
         {error && (
@@ -286,9 +416,12 @@ function ManageUsers() {
           <div className="manage-users-empty">
             Loading users…
           </div>
+
         ) : users.length ===
           0 ? (
+
           <div className="manage-users-empty">
+
             <Users
               size={28}
               strokeWidth={1.7}
@@ -300,122 +433,246 @@ function ManageUsers() {
                 ? "No users matched your search."
                 : "No users found."}
             </span>
+
           </div>
+
         ) : (
-          <div className="manage-users-list">
-            {users.map((user) => {
-              const isCurrentUser =
-                user.id ===
-                currentUserId;
 
-              const isSaving =
-                savingUserId ===
-                user.id;
+          <>
+            <div className="manage-users-list">
 
-              return (
-                <div
-                  key={user.id}
-                  className="manage-users-row"
-                >
-                  <div className="manage-users-avatar">
-                    {user.role ===
-                    "admin" ? (
-                      <ShieldCheck
-                        size={21}
-                        strokeWidth={1.8}
-                      />
-                    ) : (
-                      <User
-                        size={21}
-                        strokeWidth={1.8}
-                      />
-                    )}
-                  </div>
+              {users.map((user) => {
 
-                  <div className="manage-users-info">
-                    <div className="manage-users-name">
-                      {user.name}
+                const isCurrentUser =
+                  user.id ===
+                  currentUserId;
+
+                const isSaving =
+                  savingUserId ===
+                  user.id;
+
+                return (
+                  <div
+                    key={user.id}
+                    className="manage-users-row"
+                  >
+
+                    <div className="manage-users-avatar">
+
+                      {user.role ===
+                      "admin" ? (
+                        <ShieldCheck
+                          size={21}
+                          strokeWidth={1.8}
+                        />
+                      ) : (
+                        <User
+                          size={21}
+                          strokeWidth={1.8}
+                        />
+                      )}
+
+                    </div>
+
+                    <div className="manage-users-info">
+
+                      <div className="manage-users-name">
+
+                        {user.name}
+
+                        {isCurrentUser && (
+                          <span className="manage-users-you">
+                            You
+                          </span>
+                        )}
+
+                      </div>
+
+                      <div className="manage-users-email">
+                        {user.email}
+                      </div>
+
+                      <div className="manage-users-meta">
+
+                        Added{" "}
+                        {formatDate(
+                          user.created_at
+                        )}
+
+                        {user.is_pending_activation && (
+                          <span className="manage-users-pending">
+                            Pending activation
+                          </span>
+                        )}
+
+                      </div>
+
+                    </div>
+
+                    <div className="manage-users-role">
+
+                      <label
+                        htmlFor={`role-${user.id}`}
+                        className="manage-users-role-label"
+                      >
+                        Role
+                      </label>
+
+                      <select
+                        id={`role-${user.id}`}
+                        className="manage-users-role-select"
+                        value={
+                          user.role
+                        }
+                        disabled={
+                          isCurrentUser ||
+                          isSaving
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          handleRoleChange(
+                            user,
+                            event.target
+                              .value
+                          )
+                        }
+                      >
+
+                        <option value="assignee">
+                          Regular Signer
+                        </option>
+
+                        <option value="admin">
+                          Admin
+                        </option>
+
+                      </select>
 
                       {isCurrentUser && (
-                        <span className="manage-users-you">
-                          You
+                        <span className="manage-users-role-help">
+                          Your own role cannot
+                          be changed.
                         </span>
                       )}
-                    </div>
 
-                    <div className="manage-users-email">
-                      {user.email}
-                    </div>
-
-                    <div className="manage-users-meta">
-                      Added{" "}
-                      {formatDate(
-                        user.created_at
-                      )}
-
-                      {user.is_pending_activation && (
-                        <span className="manage-users-pending">
-                          Pending activation
+                      {isSaving && (
+                        <span className="manage-users-saving">
+                          Saving…
                         </span>
                       )}
+
                     </div>
+
                   </div>
+                );
+              })}
 
-                  <div className="manage-users-role">
-                    <label
-                      htmlFor={`role-${user.id}`}
-                      className="manage-users-role-label"
-                    >
-                      Role
-                    </label>
+            </div>
 
-                    <select
-                      id={`role-${user.id}`}
-                      className="manage-users-role-select"
-                      value={
-                        user.role
-                      }
-                      disabled={
-                        isCurrentUser ||
-                        isSaving
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        handleRoleChange(
-                          user,
-                          event.target
-                            .value
-                        )
-                      }
-                    >
-                      <option value="assignee">
-                        Regular Signer
-                      </option>
+            {totalPages > 1 && (
+              <div className="manage-users-pagination">
 
-                      <option value="admin">
-                        Admin
-                      </option>
-                    </select>
+                <button
+                  type="button"
+                  className="manage-users-pagination-button"
+                  onClick={() =>
+                    goToPage(
+                      page - 1
+                    )
+                  }
+                  disabled={
+                    page === 1 ||
+                    isLoading
+                  }
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft
+                    size={16}
+                  />
 
-                    {isCurrentUser && (
-                      <span className="manage-users-role-help">
-                        Your own role cannot
-                        be changed.
-                      </span>
-                    )}
+                  Previous
+                </button>
 
-                    {isSaving && (
-                      <span className="manage-users-saving">
-                        Saving…
-                      </span>
-                    )}
-                  </div>
+                <div className="manage-users-pagination-pages">
+
+                  {getPageNumbers().map(
+                    (pageNumber) =>
+                      typeof pageNumber ===
+                      "string" ? (
+                        <span
+                          key={
+                            pageNumber
+                          }
+                          className="manage-users-pagination-ellipsis"
+                        >
+                          …
+                        </span>
+                      ) : (
+                        <button
+                          key={
+                            pageNumber
+                          }
+                          type="button"
+                          className={`manage-users-pagination-page ${
+                            pageNumber ===
+                            page
+                              ? "active"
+                              : ""
+                          }`}
+                          onClick={() =>
+                            goToPage(
+                              pageNumber
+                            )
+                          }
+                          disabled={
+                            isLoading
+                          }
+                          aria-label={`Page ${pageNumber}`}
+                          aria-current={
+                            pageNumber ===
+                            page
+                              ? "page"
+                              : undefined
+                          }
+                        >
+                          {
+                            pageNumber
+                          }
+                        </button>
+                      )
+                  )}
+
                 </div>
-              );
-            })}
-          </div>
+
+                <button
+                  type="button"
+                  className="manage-users-pagination-button"
+                  onClick={() =>
+                    goToPage(
+                      page + 1
+                    )
+                  }
+                  disabled={
+                    page ===
+                      totalPages ||
+                    isLoading
+                  }
+                  aria-label="Next page"
+                >
+                  Next
+
+                  <ChevronRight
+                    size={16}
+                  />
+                </button>
+
+              </div>
+            )}
+
+          </>
         )}
+
       </div>
     </div>
   );
