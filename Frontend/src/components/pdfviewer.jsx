@@ -4,6 +4,9 @@ import {
   ChevronRight,
   Plus,
   Trash2,
+  Download,
+  ExternalLink,
+  Printer,
 } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
@@ -20,8 +23,10 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
  * - width/height: rendered signature size
  * - page_width/page_height: actual rendered PDF page dimensions
  *
- * Each signature is stored independently, so a document can contain
- * multiple signatures across multiple pages.
+ * The viewer also provides:
+ * - Download
+ * - View in new tab
+ * - Print
  */
 function PdfViewer({
   fileUrl,
@@ -40,6 +45,7 @@ function PdfViewer({
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isFileActionLoading, setIsFileActionLoading] = useState(false);
 
   const [renderedPageSize, setRenderedPageSize] = useState({
     width: 0,
@@ -161,7 +167,7 @@ function PdfViewer({
 
   /*
    * Store the actual rendered PDF page dimensions on signatures.
-  */
+   */
   useEffect(() => {
     if (
       renderedPageSize.width <= 0 ||
@@ -174,10 +180,8 @@ function PdfViewer({
     signaturePositions.forEach((signature) => {
       if (
         signature.page_number === currentPage - 1 &&
-        (
-          !signature.page_width ||
-          !signature.page_height
-        )
+        (!signature.page_width ||
+          !signature.page_height)
       ) {
         onSignaturePositionChange(
           signature.id,
@@ -196,10 +200,210 @@ function PdfViewer({
   ]);
 
   /*
+   * Download the PDF using the authenticated session.
+   *
+   * We fetch the file with credentials first rather than relying
+   * on a normal browser link, because the PDF endpoint is protected
+   * by the authentication cookie.
+   */
+  const fetchPdfBlob = async () => {
+    const response = await fetch(fileUrl, {
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to load PDF.");
+    }
+
+    return await response.blob();
+  };
+
+  /*
+   * Download PDF.
+   */
+  const handleDownload = async () => {
+    if (!fileUrl || isFileActionLoading) return;
+
+    setIsFileActionLoading(true);
+
+    try {
+      const blob = await fetchPdfBlob();
+
+      const blobUrl = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = "document.pdf";
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error("PDF download failed:", err);
+      setError("Couldn't download this PDF.");
+    } finally {
+      setIsFileActionLoading(false);
+    }
+  };
+
+  /*
+   * Open PDF in a new browser tab.
+   *
+   * The PDF is first fetched using the authenticated session and
+   * converted into a temporary blob URL.
+   */
+  const handleView = async () => {
+    if (!fileUrl || isFileActionLoading) return;
+
+    setIsFileActionLoading(true);
+
+    /*
+     * Open the tab immediately so mobile browsers do not block
+     * the new tab because of the asynchronous fetch.
+     */
+    const newWindow = window.open("", "_blank");
+
+    try {
+      const blob = await fetchPdfBlob();
+
+      const blobUrl = URL.createObjectURL(blob);
+
+      if (newWindow) {
+        newWindow.location.href = blobUrl;
+      } else {
+        /*
+         * If the browser blocked the popup, fall back to the
+         * current tab.
+         */
+        window.location.href = blobUrl;
+      }
+
+      /*
+       * Give the new tab time to load the blob before revoking it.
+       */
+      setTimeout(() => {
+        URL.revokeObjectURL(blobUrl);
+      }, 60000);
+    } catch (err) {
+      console.error("PDF view failed:", err);
+
+      if (newWindow) {
+        newWindow.close();
+      }
+
+      setError("Couldn't open this PDF.");
+    } finally {
+      setIsFileActionLoading(false);
+    }
+  };
+
+  /*
+   * Print PDF.
+   *
+   * The PDF is fetched with the authenticated session and opened
+   * in a temporary tab. The browser's print dialog is then triggered.
+   */
+  const handlePrint = async () => {
+    if (!fileUrl || isFileActionLoading) return;
+
+    setIsFileActionLoading(true);
+
+    /*
+     * Open the window immediately to avoid popup blocking.
+     */
+    const printWindow = window.open("", "_blank");
+
+    try {
+      if (!printWindow) {
+        throw new Error("Popup blocked.");
+      }
+
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Print Document</title>
+            <style>
+              html,
+              body {
+                margin: 0;
+                padding: 0;
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+                background: white;
+              }
+
+              iframe {
+                width: 100%;
+                height: 100%;
+                border: 0;
+              }
+            </style>
+          </head>
+          <body>
+            <p style="font-family: sans-serif; padding: 20px;">
+              Loading document…
+            </p>
+          </body>
+        </html>
+      `);
+
+      printWindow.document.close();
+
+      const blob = await fetchPdfBlob();
+
+      const blobUrl = URL.createObjectURL(blob);
+
+      printWindow.document.body.innerHTML = `
+        <iframe
+          src="${blobUrl}"
+          title="Printable document"
+        ></iframe>
+      `;
+
+      /*
+       * Give the PDF viewer time to load before printing.
+       */
+      setTimeout(() => {
+        try {
+          printWindow.focus();
+          printWindow.print();
+        } catch (err) {
+          console.error("Print dialog failed:", err);
+        }
+      }, 1000);
+
+      /*
+       * Keep the blob alive long enough for the browser's
+       * built-in PDF viewer to load it.
+       */
+      setTimeout(() => {
+        URL.revokeObjectURL(blobUrl);
+      }, 60000);
+    } catch (err) {
+      console.error("PDF print failed:", err);
+
+      if (printWindow) {
+        printWindow.close();
+      }
+
+      setError("Couldn't prepare this PDF for printing.");
+    } finally {
+      setIsFileActionLoading(false);
+    }
+  };
+
+  /*
    * Convert pointer position into coordinates relative
    * to the PDF page.
    */
-  const getPositionFromPointer = (clientX, clientY) => {
+  const getPositionFromPointer = (
+    clientX,
+    clientY
+  ) => {
     if (!viewerWrapperRef.current) return null;
 
     const rect =
@@ -441,10 +645,6 @@ function PdfViewer({
 
   /*
    * Add a signature to the current page.
-   *
-   * Pass the currently rendered page dimensions to the
-   * parent so the backend knows exactly what scale the
-   * frontend was using when the signature was placed.
    */
   const handleAddSignatureToCurrentPage = () => {
     if (!onAddSignature) return;
@@ -569,6 +769,49 @@ function PdfViewer({
             )
           )}
       </div>
+
+      {!isLoading && !error && fileUrl && (
+        <div className="pdfviewer-file-actions">
+          <button
+            type="button"
+            className="pdfviewer-file-action"
+            onClick={handleDownload}
+            disabled={isFileActionLoading}
+          >
+            <Download
+              size={15}
+              strokeWidth={2}
+            />
+            Download
+          </button>
+
+          <button
+            type="button"
+            className="pdfviewer-file-action"
+            onClick={handleView}
+            disabled={isFileActionLoading}
+          >
+            <ExternalLink
+              size={15}
+              strokeWidth={2}
+            />
+            View
+          </button>
+
+          <button
+            type="button"
+            className="pdfviewer-file-action"
+            onClick={handlePrint}
+            disabled={isFileActionLoading}
+          >
+            <Printer
+              size={15}
+              strokeWidth={2}
+            />
+            Print
+          </button>
+        </div>
+      )}
 
       {canAddSignature && (
         <button
