@@ -7,6 +7,10 @@ import {
   ClipboardList,
   Search,
   X,
+  UserRoundPen,
+  Trash2,
+  Save,
+  XCircle,
 } from "lucide-react";
 import { apiFetch } from "../utils/api";
 import "./adminassignments.css";
@@ -14,89 +18,59 @@ import "./adminassignments.css";
 function AdminAssignments() {
   const navigate = useNavigate();
 
-  const [assignments, setAssignments] =
-    useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const [isLoading, setIsLoading] =
-    useState(true);
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState("newest");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
-  const [error, setError] =
-    useState("");
-
-  const [search, setSearch] =
-    useState("");
-
-  const [sort, setSort] =
-    useState("newest");
-
-  const [statusFilter, setStatusFilter] =
-    useState("all");
-
-  const [dateFrom, setDateFrom] =
-    useState("");
-
-  const [dateTo, setDateTo] =
-    useState("");
+  const [assignableUsers, setAssignableUsers] = useState([]);
+  const [editingAssignmentId, setEditingAssignmentId] = useState(null);
+  const [selectedAssigneeId, setSelectedAssigneeId] = useState("");
+  const [isChangingAssignee, setIsChangingAssignee] = useState(false);
+  const [deletingAssignmentId, setDeletingAssignmentId] = useState(null);
 
   const loadAssignments = async () => {
     setIsLoading(true);
     setError("");
 
     try {
-      const params =
-        new URLSearchParams();
+      const params = new URLSearchParams();
 
       if (search.trim().length >= 2) {
-        params.set(
-          "search",
-          search.trim()
-        );
+        params.set("search", search.trim());
       }
 
       params.set("sort", sort);
 
       if (statusFilter !== "all") {
-        params.set(
-          "status",
-          statusFilter
-        );
+        params.set("status", statusFilter);
       }
 
       if (dateFrom) {
-        params.set(
-          "date_from",
-          dateFrom
-        );
+        params.set("date_from", dateFrom);
       }
 
       if (dateTo) {
-        params.set(
-          "date_to",
-          dateTo
-        );
+        params.set("date_to", dateTo);
       }
 
-      const queryString =
-        params.toString();
-
-      const response =
-        await apiFetch(
-          `/admin/assignments?${queryString}`
-        );
+      const response = await apiFetch(
+        `/admin/assignments?${params.toString()}`
+      );
 
       if (!response.ok) {
-        throw new Error(
-          "Failed to load assignments."
-        );
+        throw new Error("Failed to load assignments.");
       }
 
-      const data =
-        await response.json();
+      const data = await response.json();
 
       setAssignments(
-        Array.isArray(data)
-          ? data
-          : []
+        Array.isArray(data) ? data : []
       );
     } catch {
       setError(
@@ -107,14 +81,38 @@ function AdminAssignments() {
     }
   };
 
-  useEffect(() => {
-    const timeout =
-      setTimeout(() => {
-        loadAssignments();
-      }, 300);
+  const loadAssignableUsers = async () => {
+    try {
+      const response = await apiFetch(
+        "/admin/users/assignable"
+      );
 
-    return () =>
-      clearTimeout(timeout);
+      if (!response.ok) {
+        throw new Error(
+          "Failed to load assignable users."
+        );
+      }
+
+      const data = await response.json();
+
+      setAssignableUsers(
+        Array.isArray(data) ? data : []
+      );
+    } catch {
+      setAssignableUsers([]);
+    }
+  };
+
+  useEffect(() => {
+    loadAssignableUsers();
+  }, []);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      loadAssignments();
+    }, 300);
+
+    return () => clearTimeout(timeout);
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -125,12 +123,8 @@ function AdminAssignments() {
     dateTo,
   ]);
 
-  const formatDate = (
-    isoString
-  ) =>
-    new Date(
-      isoString
-    ).toLocaleDateString(
+  const formatDate = (isoString) =>
+    new Date(isoString).toLocaleDateString(
       undefined,
       {
         year: "numeric",
@@ -139,17 +133,124 @@ function AdminAssignments() {
       }
     );
 
-  const openAssignment = (
-    assignmentId
-  ) => {
-    navigate(
-      `/documents/${assignmentId}`
-    );
+  const openAssignment = (assignmentId) => {
+    navigate(`/documents/${assignmentId}`);
   };
 
   const clearDates = () => {
     setDateFrom("");
     setDateTo("");
+  };
+
+  const startChangingAssignee = (assignment) => {
+    setEditingAssignmentId(assignment.id);
+    setSelectedAssigneeId(
+      assignment.assigned_to_id || ""
+    );
+  };
+
+  const cancelChangingAssignee = () => {
+    setEditingAssignmentId(null);
+    setSelectedAssigneeId("");
+  };
+
+  const saveAssignee = async (assignmentId) => {
+    if (!selectedAssigneeId) {
+      return;
+    }
+
+    setIsChangingAssignee(true);
+    setError("");
+
+    try {
+      const response = await apiFetch(
+        `/admin/assignments/${assignmentId}/assignee`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            assigned_to_id: selectedAssigneeId,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        let message =
+          "Failed to change the assignee.";
+
+        try {
+          const data = await response.json();
+
+          if (data?.detail) {
+            message = data.detail;
+          }
+        } catch {
+          // Keep default message.
+        }
+
+        throw new Error(message);
+      }
+
+      cancelChangingAssignee();
+      await loadAssignments();
+    } catch (err) {
+      setError(
+        err.message ||
+          "Couldn't change the assignee. Please try again."
+      );
+    } finally {
+      setIsChangingAssignee(false);
+    }
+  };
+
+  const deleteAssignment = async (assignment) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${assignment.title}"?\n\nThis will permanently delete the assignment and all documents inside it. This cannot be undone.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingAssignmentId(assignment.id);
+    setError("");
+
+    try {
+      const response = await apiFetch(
+        `/admin/assignments/${assignment.id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        let message =
+          "Failed to delete the assignment.";
+
+        try {
+          const data = await response.json();
+
+          if (data?.detail) {
+            message = data.detail;
+          }
+        } catch {
+          // Keep default message.
+        }
+
+        throw new Error(message);
+      }
+
+      await loadAssignments();
+    } catch (err) {
+      setError(
+        err.message ||
+          "Couldn't delete the assignment. Please try again."
+      );
+    } finally {
+      setDeletingAssignmentId(null);
+    }
   };
 
   return (
@@ -185,8 +286,6 @@ function AdminAssignments() {
 
         <div className="adminassignments-filters">
 
-          {/* Search */}
-
           <div className="adminassignments-search">
             <Search
               size={18}
@@ -198,9 +297,7 @@ function AdminAssignments() {
               type="text"
               value={search}
               onChange={(e) =>
-                setSearch(
-                  e.target.value
-                )
+                setSearch(e.target.value)
               }
               placeholder="Search assignments or users..."
               aria-label="Search assignments"
@@ -220,15 +317,11 @@ function AdminAssignments() {
             )}
           </div>
 
-          {/* Sort */}
-
           <select
             className="adminassignments-filter-select"
             value={sort}
             onChange={(e) =>
-              setSort(
-                e.target.value
-              )
+              setSort(e.target.value)
             }
             aria-label="Sort assignments"
           >
@@ -241,15 +334,11 @@ function AdminAssignments() {
             </option>
           </select>
 
-          {/* Status */}
-
           <select
             className="adminassignments-filter-select"
             value={statusFilter}
             onChange={(e) =>
-              setStatusFilter(
-                e.target.value
-              )
+              setStatusFilter(e.target.value)
             }
             aria-label="Filter by status"
           >
@@ -265,8 +354,6 @@ function AdminAssignments() {
               Signed off
             </option>
           </select>
-
-          {/* From date */}
 
           <div className="adminassignments-date-filter">
             <label htmlFor="assignmentDateFrom">
@@ -290,15 +377,11 @@ function AdminAssignments() {
                     : ""
                 }
                 onChange={(e) =>
-                  setDateFrom(
-                    e.target.value
-                  )
+                  setDateFrom(e.target.value)
                 }
               />
             </div>
           </div>
-
-          {/* To date */}
 
           <div className="adminassignments-date-filter">
             <label htmlFor="assignmentDateTo">
@@ -322,15 +405,11 @@ function AdminAssignments() {
                     : ""
                 }
                 onChange={(e) =>
-                  setDateTo(
-                    e.target.value
-                  )
+                  setDateTo(e.target.value)
                 }
               />
             </div>
           </div>
-
-          {/* Clear dates */}
 
           {(dateFrom || dateTo) && (
             <button
@@ -353,8 +432,7 @@ function AdminAssignments() {
           <p className="adminassignments-empty">
             Loading...
           </p>
-        ) : assignments.length ===
-          0 ? (
+        ) : assignments.length === 0 ? (
           <p className="adminassignments-empty">
             {search.trim().length >= 2
               ? "No assignments matched your search."
@@ -368,22 +446,43 @@ function AdminAssignments() {
           </p>
         ) : (
           <div className="adminassignments-list">
-            {assignments.map(
-              (assignment) => {
-                const isSigned =
-                  assignment.status ===
-                  "signed";
+            {assignments.map((assignment) => {
+              const isSigned =
+                assignment.status === "signed";
 
-                return (
-                  <button
-                    key={assignment.id}
-                    type="button"
-                    className="adminassignments-row"
+              const isEditing =
+                editingAssignmentId ===
+                assignment.id;
+
+              const isDeleting =
+                deletingAssignmentId ===
+                assignment.id;
+
+              return (
+                <div
+                  key={assignment.id}
+                  className="adminassignments-row"
+                >
+                  <div
+                    className="adminassignments-row-main"
+                    role="button"
+                    tabIndex={0}
                     onClick={() =>
                       openAssignment(
                         assignment.id
                       )
                     }
+                    onKeyDown={(e) => {
+                      if (
+                        e.key === "Enter" ||
+                        e.key === " "
+                      ) {
+                        e.preventDefault();
+                        openAssignment(
+                          assignment.id
+                        );
+                      }
+                    }}
                     aria-label={`View assignment ${assignment.title}`}
                   >
                     <div className="adminassignments-row-icon">
@@ -399,19 +498,13 @@ function AdminAssignments() {
                       </span>
 
                       <span className="adminassignments-row-meta">
-                        {
-                          assignment.assigned_to_name
-                        }{" "}
+                        {assignment.assigned_to_name}{" "}
                         -{" "}
-                        {
-                          assignment.assigned_to_email
-                        }
+                        {assignment.assigned_to_email}
                       </span>
 
                       <span className="adminassignments-row-meta">
-                        {
-                          assignment.document_count
-                        }{" "}
+                        {assignment.document_count}{" "}
                         document
                         {assignment.document_count !==
                         1
@@ -456,10 +549,114 @@ function AdminAssignments() {
                         </>
                       )}
                     </div>
-                  </button>
-                );
-              }
-            )}
+                  </div>
+
+                  <div className="adminassignments-actions">
+                    {isEditing ? (
+                      <div className="adminassignments-assignee-editor">
+                        <select
+                          className="adminassignments-assignee-select"
+                          value={
+                            selectedAssigneeId
+                          }
+                          onChange={(e) =>
+                            setSelectedAssigneeId(
+                              e.target.value
+                            )
+                          }
+                          disabled={
+                            isChangingAssignee
+                          }
+                          aria-label="Select new assignee"
+                        >
+                          <option value="">
+                            Select assignee
+                          </option>
+
+                          {assignableUsers.map(
+                            (user) => (
+                              <option
+                                key={user.id}
+                                value={user.id}
+                              >
+                                {user.name} -{" "}
+                                {user.email}
+                              </option>
+                            )
+                          )}
+                        </select>
+
+                        <button
+                          type="button"
+                          className="adminassignments-action-button save"
+                          onClick={() =>
+                            saveAssignee(
+                              assignment.id
+                            )
+                          }
+                          disabled={
+                            isChangingAssignee ||
+                            !selectedAssigneeId
+                          }
+                          aria-label="Save assignee"
+                          title="Save assignee"
+                        >
+                          <Save size={15} />
+                        </button>
+
+                        <button
+                          type="button"
+                          className="adminassignments-action-button cancel"
+                          onClick={
+                            cancelChangingAssignee
+                          }
+                          disabled={
+                            isChangingAssignee
+                          }
+                          aria-label="Cancel"
+                          title="Cancel"
+                        >
+                          <XCircle size={15} />
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          className="adminassignments-action-button change"
+                          onClick={() =>
+                            startChangingAssignee(
+                              assignment
+                            )
+                          }
+                          aria-label={`Change assignee for ${assignment.title}`}
+                          title="Change assignee"
+                        >
+                          <UserRoundPen
+                            size={16}
+                          />
+                        </button>
+
+                        <button
+                          type="button"
+                          className="adminassignments-action-button delete"
+                          onClick={() =>
+                            deleteAssignment(
+                              assignment
+                            )
+                          }
+                          disabled={isDeleting}
+                          aria-label={`Delete ${assignment.title}`}
+                          title="Delete assignment"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

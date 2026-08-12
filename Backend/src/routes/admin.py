@@ -19,28 +19,50 @@ from src.database import get_db
 from src.models.user import User
 from src.models.assignment import Assignment
 from src.models.document import Document
+
 from src.schemas.admin import (
     AdminAssignmentListItem,
     AdminUserResponse,
     InviteUserRequest,
     InviteUserResponse,
     UpdateUserRoleRequest,
+    UpdateAssignmentAssigneeRequest,
 )
-from src.schemas.documents import UserSummary, UploadDocumentsResponse
+
+from src.schemas.documents import (
+    UserSummary,
+    UploadDocumentsResponse,
+)
+
 from src.routes.auth import get_current_user
-from src.security import hash_password, create_invite_token
+from src.security import (
+    hash_password,
+    create_invite_token,
+)
+
 from src.services.email_service import (
     send_documents_assigned_email,
     send_invite_email,
 )
-from src.services.storage_service import upload_file_to_storage
+
+from src.services.storage_service import (
+    upload_file_to_storage,
+    delete_file_from_storage,
+)
+
 from src.config import settings
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+
+router = APIRouter(
+    prefix="/admin",
+    tags=["admin"],
+)
 
 
 def require_admin(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        get_current_user
+    ),
 ) -> User:
     """
     Dependency — only lets admins through.
@@ -67,7 +89,9 @@ def invite_user(
 ):
     existing = (
         db.query(User)
-        .filter(User.email == payload.email)
+        .filter(
+            User.email == payload.email
+        )
         .first()
     )
 
@@ -77,7 +101,9 @@ def invite_user(
             detail="A user with that email already exists.",
         )
 
-    placeholder_password = secrets.token_urlsafe(32)
+    placeholder_password = (
+        secrets.token_urlsafe(32)
+    )
 
     new_user = User(
         name=payload.name,
@@ -147,45 +173,21 @@ def list_admin_assignments(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """
-    Every assignment uploaded by this admin.
-
-    Supports:
-
-    Search:
-    - Assignment title
-    - Assignee name
-    - Assignee email
-
-    Sorting:
-    - newest
-    - oldest
-
-    Status:
-    - pending
-    - signed
-
-    Date filtering:
-    - date_from
-    - date_to
-    """
-
     query = (
         db.query(Assignment)
         .filter(
-            Assignment.assigned_by_id == admin.id
+            Assignment.assigned_by_id
+            == admin.id
         )
     )
-
-    # ---------------------------------------------------------
-    # Search
-    # ---------------------------------------------------------
 
     if search:
         search = search.strip()
 
         if len(search) >= 2:
-            search_term = f"%{search}%"
+            search_term = (
+                f"%{search}%"
+            )
 
             query = query.join(
                 Assignment.assigned_to
@@ -203,21 +205,11 @@ def list_admin_assignments(
                 )
             )
 
-    # ---------------------------------------------------------
-    # Status filter
-    # ---------------------------------------------------------
-
     if status_filter:
         query = query.filter(
-            Assignment.status == status_filter
+            Assignment.status
+            == status_filter
         )
-
-    # ---------------------------------------------------------
-    # Date range
-    #
-    # date_from includes the entire starting day.
-    # date_to includes the entire ending day.
-    # ---------------------------------------------------------
 
     if date_from:
         query = query.filter(
@@ -236,10 +228,6 @@ def list_admin_assignments(
                 time.max,
             )
         )
-
-    # ---------------------------------------------------------
-    # Sorting
-    # ---------------------------------------------------------
 
     if sort == "oldest":
         query = query.order_by(
@@ -271,6 +259,9 @@ def list_admin_assignments(
                 title=assignment.title,
                 status=assignment.status,
                 created_at=assignment.created_at,
+                assigned_to_id=(
+                    assignment.assigned_to_id
+                ),
                 assigned_to_name=(
                     assignment.assigned_to.name
                 ),
@@ -285,6 +276,180 @@ def list_admin_assignments(
     return results
 
 
+@router.patch(
+    "/assignments/{assignment_id}/assignee",
+    response_model=AdminAssignmentListItem,
+)
+def change_assignment_assignee(
+    assignment_id: UUID,
+    payload: UpdateAssignmentAssigneeRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """
+    Change the user assigned to an existing assignment.
+
+    Only assignments created by the current admin can be changed.
+    Only regular signers can be selected as the new assignee.
+
+    Existing documents and signing progress are preserved.
+    """
+
+    assignment = (
+        db.query(Assignment)
+        .filter(
+            Assignment.id == assignment_id,
+            Assignment.assigned_by_id == admin.id,
+        )
+        .first()
+    )
+
+    if not assignment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Assignment not found.",
+        )
+
+    new_assignee = (
+        db.query(User)
+        .filter(
+            User.id
+            == payload.assigned_to_id
+        )
+        .first()
+    )
+
+    if not new_assignee:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Selected assignee does not exist.",
+        )
+
+    if new_assignee.role != "assignee":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Assignments can only be assigned "
+                "to regular signers."
+            ),
+        )
+
+    assignment.assigned_to_id = (
+        new_assignee.id
+    )
+
+    db.commit()
+    db.refresh(assignment)
+
+    doc_count = len(
+        assignment.documents
+    )
+
+    signed_count = sum(
+        1
+        for document in assignment.documents
+        if document.is_signed
+    )
+
+    return AdminAssignmentListItem(
+        id=assignment.id,
+        title=assignment.title,
+        status=assignment.status,
+        created_at=assignment.created_at,
+        assigned_to_id=(
+            assignment.assigned_to_id
+        ),
+        assigned_to_name=(
+            new_assignee.name
+        ),
+        assigned_to_email=(
+            new_assignee.email
+        ),
+        document_count=doc_count,
+        signed_count=signed_count,
+    )
+
+
+@router.delete(
+    "/assignments/{assignment_id}",
+)
+def delete_assignment(
+    assignment_id: UUID,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """
+    Permanently delete an assignment.
+
+    Only assignments created by the current admin can be deleted.
+
+    Associated documents are deleted through the SQLAlchemy
+    relationship cascade, and their corresponding storage objects
+    are also removed.
+    """
+
+    assignment = (
+        db.query(Assignment)
+        .filter(
+            Assignment.id == assignment_id,
+            Assignment.assigned_by_id == admin.id,
+        )
+        .first()
+    )
+
+    if not assignment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Assignment not found.",
+        )
+
+    documents = list(
+        assignment.documents
+    )
+
+    storage_keys = []
+
+    for document in documents:
+        if document.storage_key:
+            storage_keys.append(
+                document.storage_key
+            )
+
+        if document.signature_storage_key:
+            storage_keys.append(
+                document.signature_storage_key
+            )
+
+    try:
+        for storage_key in storage_keys:
+            delete_file_from_storage(
+                storage_key
+            )
+    except Exception as e:
+        db.rollback()
+
+        print(
+            f"[assignment storage deletion failed] "
+            f"{type(e).__name__}: {e}"
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                "The assignment could not be deleted "
+                "because one or more files could not "
+                "be removed from storage."
+            ),
+        )
+
+    db.delete(assignment)
+    db.commit()
+
+    return {
+        "detail": "Assignment deleted successfully."
+    }
+
+
 @router.get(
     "/users",
     response_model=list[AdminUserResponse],
@@ -294,21 +459,15 @@ def list_all_users(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """
-    Return all users for the admin user-management screen.
-
-    Search supports:
-    - User name
-    - User email
-    """
-
     query = db.query(User)
 
     if search:
         search = search.strip()
 
         if len(search) >= 2:
-            search_term = f"%{search}%"
+            search_term = (
+                f"%{search}%"
+            )
 
             query = query.filter(
                 or_(
@@ -338,12 +497,6 @@ def update_user_role(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """
-    Change another user's role.
-
-    Admins cannot change their own role.
-    """
-
     if user_id == admin.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -352,7 +505,9 @@ def update_user_role(
 
     user = (
         db.query(User)
-        .filter(User.id == user_id)
+        .filter(
+            User.id == user_id
+        )
         .first()
     )
 
@@ -391,16 +546,6 @@ def list_assignable_users(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """
-    Users for the assignee picker on the upload screen.
-
-    Only regular signers are returned.
-
-    Search supports:
-    - User name
-    - User email
-    """
-
     query = (
         db.query(User)
         .filter(
@@ -412,7 +557,9 @@ def list_assignable_users(
         search = search.strip()
 
         if len(search) >= 2:
-            search_term = f"%{search}%"
+            search_term = (
+                f"%{search}%"
+            )
 
             query = query.filter(
                 or_(
@@ -500,7 +647,9 @@ async def upload_documents(
     db.add(assignment)
     db.flush()
 
-    created_documents: list[Document] = []
+    created_documents: list[
+        Document
+    ] = []
 
     for upload in files:
 
@@ -528,7 +677,9 @@ async def upload_documents(
         )
 
         db.add(document)
-        created_documents.append(document)
+        created_documents.append(
+            document
+        )
 
     db.commit()
 

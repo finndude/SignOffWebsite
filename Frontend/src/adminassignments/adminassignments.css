@@ -251,7 +251,7 @@
 .adminassignments-row {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   background: rgba(255, 255, 255, 0.94);
   border: 1px solid #e2e6ee;
   border-radius: 12px;
@@ -259,14 +259,26 @@
   box-shadow: 0 12px 36px rgba(31, 45, 90, 0.1);
   width: 100%;
   box-sizing: border-box;
-  text-align: left;
-  font-family: inherit;
-  cursor: pointer;
 }
 
 .adminassignments-row:hover {
   border-color: #2f5ef5;
   background: #f8faff;
+}
+
+.adminassignments-row-main {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.adminassignments-row-main:focus-visible {
+  outline: 2px solid #2f5ef5;
+  outline-offset: 3px;
 }
 
 .adminassignments-row-icon {
@@ -329,6 +341,98 @@
 }
 
 /* ---------------------------------------------------------
+   Assignment actions
+--------------------------------------------------------- */
+
+.adminassignments-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.adminassignments-action-button {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #e2e6ee;
+  border-radius: 8px;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.adminassignments-action-button.change {
+  color: #2f5ef5;
+}
+
+.adminassignments-action-button.change:hover {
+  background: #eaf0fb;
+  border-color: #2f5ef5;
+}
+
+.adminassignments-action-button.delete {
+  color: #b3261e;
+}
+
+.adminassignments-action-button.delete:hover {
+  background: #fdecec;
+  border-color: #b3261e;
+}
+
+.adminassignments-action-button.save {
+  color: #1b7a3d;
+}
+
+.adminassignments-action-button.save:hover {
+  background: #eafaf0;
+  border-color: #1b7a3d;
+}
+
+.adminassignments-action-button.cancel {
+  color: #6b7688;
+}
+
+.adminassignments-action-button.cancel:hover {
+  background: #f1f3f7;
+  border-color: #8a93a6;
+}
+
+.adminassignments-action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.adminassignments-assignee-editor {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.adminassignments-assignee-select {
+  height: 34px;
+  max-width: 220px;
+  border: 1px solid #e2e6ee;
+  border-radius: 8px;
+  padding: 0 9px;
+  background: #ffffff;
+  color: #14213d;
+  font-family: inherit;
+  font-size: 12.5px;
+  outline: none;
+}
+
+.adminassignments-assignee-select:focus {
+  border-color: #2f5ef5;
+  box-shadow: 0 0 0 2px rgba(47, 94, 245, 0.08);
+}
+
+/* ---------------------------------------------------------
    Mobile
 --------------------------------------------------------- */
 
@@ -355,11 +459,30 @@
     flex-wrap: wrap;
   }
 
+  .adminassignments-row-main {
+    min-width: 0;
+    width: 100%;
+  }
+
   .adminassignments-row-info {
-    min-width: calc(100% - 56px);
+    min-width: 0;
   }
 
   .adminassignments-row-status {
     margin-left: 56px;
+  }
+
+  .adminassignments-actions {
+    width: 100%;
+    margin-left: 56px;
+  }
+
+  .adminassignments-assignee-editor {
+    width: 100%;
+  }
+
+  .adminassignments-assignee-select {
+    flex: 1;
+    max-width: none;
   }
 }

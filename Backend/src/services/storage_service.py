@@ -26,7 +26,11 @@ def _extract_region_from_endpoint(endpoint: str) -> str:
         endpoint,
     )
 
-    return match.group(1) if match else "auto"
+    return (
+        match.group(1)
+        if match
+        else "auto"
+    )
 
 
 s3_client = boto3.client(
@@ -54,7 +58,9 @@ def upload_file_to_storage(
         else "pdf"
     )
 
-    storage_key = f"documents/{uuid.uuid4()}.{extension}"
+    storage_key = (
+        f"documents/{uuid.uuid4()}.{extension}"
+    )
 
     s3_client.put_object(
         Bucket=settings.storage_bucket_name,
@@ -75,7 +81,9 @@ def upload_signature_to_storage(
     This is kept separately from the signed PDF so the original
     signature image can still be retained for audit purposes.
     """
-    storage_key = f"signatures/{uuid.uuid4()}.png"
+    storage_key = (
+        f"signatures/{uuid.uuid4()}.png"
+    )
 
     s3_client.put_object(
         Bucket=settings.storage_bucket_name,
@@ -85,6 +93,21 @@ def upload_signature_to_storage(
     )
 
     return storage_key
+
+
+def delete_file_from_storage(
+    storage_key: str,
+) -> None:
+    """
+    Permanently deletes an object from storage.
+    """
+    if not storage_key:
+        return
+
+    s3_client.delete_object(
+        Bucket=settings.storage_bucket_name,
+        Key=storage_key,
+    )
 
 
 def overwrite_file_in_storage(
@@ -123,7 +146,9 @@ def get_download_url(
     )
 
 
-def get_file_from_storage(storage_key: str):
+def get_file_from_storage(
+    storage_key: str,
+):
     """
     Opens a private object from storage so the API can stream it
     to the browser.
@@ -207,10 +232,6 @@ def stamp_signatures_on_pdf(
             "At least one signature placement is required."
         )
 
-    # ---------------------------------------------------------
-    # Create an overlay for every signature.
-    # ---------------------------------------------------------
-
     overlays = []
 
     for signature in signatures:
@@ -224,9 +245,10 @@ def stamp_signatures_on_pdf(
                 f"Invalid PDF page number: {page_number}"
             )
 
-        pdf_page = reader.pages[page_number]
+        pdf_page = reader.pages[
+            page_number
+        ]
 
-        # Actual PDF page dimensions in points.
         pdf_width = float(
             pdf_page.mediabox.width
         )
@@ -235,7 +257,6 @@ def stamp_signatures_on_pdf(
             pdf_page.mediabox.height
         )
 
-        # Dimensions of the page as rendered in the browser.
         rendered_width = float(
             signature.page_width
         )
@@ -244,12 +265,14 @@ def stamp_signatures_on_pdf(
             signature.page_height
         )
 
-        if rendered_width <= 0 or rendered_height <= 0:
+        if (
+            rendered_width <= 0
+            or rendered_height <= 0
+        ):
             raise ValueError(
                 "Invalid rendered page dimensions."
             )
 
-        # Scale browser coordinates into PDF points.
         scale_x = (
             pdf_width / rendered_width
         )
@@ -258,22 +281,20 @@ def stamp_signatures_on_pdf(
             pdf_height / rendered_height
         )
 
-        # Frontend X/Y are top-left based.
-        #
-        # PDF X/Y are bottom-left based.
         pdf_x = (
             float(signature.x) * scale_x
         )
 
         signature_width = (
-            float(signature.width) * scale_x
+            float(signature.width)
+            * scale_x
         )
 
         signature_height = (
-            float(signature.height) * scale_y
+            float(signature.height)
+            * scale_y
         )
 
-        # Convert top-left Y into bottom-left PDF Y.
         pdf_y = (
             pdf_height
             - (
@@ -283,21 +304,22 @@ def stamp_signatures_on_pdf(
             * scale_y
         )
 
-        # Create temporary PDF containing the signature.
-        overlay_bytes = _create_signature_overlay(
-            signature_bytes,
-            signature_width,
-            signature_height,
+        overlay_bytes = (
+            _create_signature_overlay(
+                signature_bytes,
+                signature_width,
+                signature_height,
+            )
         )
 
         overlay_reader = PdfReader(
             io.BytesIO(overlay_bytes)
         )
 
-        overlay_page = overlay_reader.pages[0]
+        overlay_page = (
+            overlay_reader.pages[0]
+        )
 
-        # Move the signature overlay to the desired
-        # position on the actual PDF page.
         overlay_page.translate(
             pdf_x,
             pdf_y,
@@ -310,17 +332,13 @@ def stamp_signatures_on_pdf(
             )
         )
 
-    # ---------------------------------------------------------
-    # Apply every signature to its corresponding page.
-    # ---------------------------------------------------------
-
     for page_number, page in enumerate(
         reader.pages
     ):
         page_overlays = [
             overlay
-            for overlay_page_number, overlay
-            in overlays
+            for overlay_page_number,
+            overlay in overlays
             if overlay_page_number
             == page_number
         ]
@@ -331,10 +349,6 @@ def stamp_signatures_on_pdf(
             )
 
         writer.add_page(page)
-
-    # ---------------------------------------------------------
-    # Write final PDF.
-    # ---------------------------------------------------------
 
     output = io.BytesIO()
 
