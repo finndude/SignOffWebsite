@@ -1,5 +1,6 @@
 import secrets
 from uuid import UUID
+from datetime import date, datetime
 
 from fastapi import (
     APIRouter,
@@ -34,6 +35,7 @@ from src.services.email_service import (
 )
 from src.services.storage_service import upload_file_to_storage
 from src.config import settings
+
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -126,12 +128,22 @@ def invite_user(
     }
 
 
+# =========================================================
+# ADMIN ASSIGNMENTS
+# =========================================================
+
 @router.get(
     "/assignments",
     response_model=list[AdminAssignmentListItem],
 )
 def list_admin_assignments(
     search: str | None = Query(None),
+    sort: str = Query(
+        "newest",
+        pattern="^(newest|oldest)$",
+    ),
+    date_from: date | None = None,
+    date_to: date | None = None,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
@@ -142,6 +154,11 @@ def list_admin_assignments(
     - Assignment title
     - Assignee name
     - Assignee email
+
+    Optional filters:
+    - sort: newest / oldest
+    - date_from
+    - date_to
     """
 
     query = (
@@ -150,6 +167,10 @@ def list_admin_assignments(
             Assignment.assigned_by_id == admin.id
         )
     )
+
+    # -----------------------------------------------------
+    # Search
+    # -----------------------------------------------------
 
     if search:
         search = search.strip()
@@ -173,13 +194,42 @@ def list_admin_assignments(
                 )
             )
 
-    assignments = (
-        query
-        .order_by(
+    # -----------------------------------------------------
+    # Date range
+    # -----------------------------------------------------
+
+    if date_from:
+        query = query.filter(
+            Assignment.created_at
+            >= datetime.combine(
+                date_from,
+                datetime.min.time(),
+            )
+        )
+
+    if date_to:
+        query = query.filter(
+            Assignment.created_at
+            <= datetime.combine(
+                date_to,
+                datetime.max.time(),
+            )
+        )
+
+    # -----------------------------------------------------
+    # Sorting
+    # -----------------------------------------------------
+
+    if sort == "oldest":
+        query = query.order_by(
+            Assignment.created_at.asc()
+        )
+    else:
+        query = query.order_by(
             Assignment.created_at.desc()
         )
-        .all()
-    )
+
+    assignments = query.all()
 
     results = []
 
@@ -213,6 +263,10 @@ def list_admin_assignments(
 
     return results
 
+
+# =========================================================
+# USERS
+# =========================================================
 
 @router.get(
     "/users",
@@ -361,6 +415,10 @@ def list_assignable_users(
         .all()
     )
 
+
+# =========================================================
+# DOCUMENT UPLOAD
+# =========================================================
 
 @router.post(
     "/documents/upload",

@@ -7,6 +7,8 @@ import {
   ClipboardList,
   Search,
   X,
+  SlidersHorizontal,
+  RotateCcw,
 } from "lucide-react";
 import { apiFetch } from "../utils/api";
 import "./adminassignments.css";
@@ -25,6 +27,18 @@ function AdminAssignments() {
 
   const [search, setSearch] =
     useState("");
+
+  const [sort, setSort] =
+    useState("newest");
+
+  const [dateFrom, setDateFrom] =
+    useState("");
+
+  const [dateTo, setDateTo] =
+    useState("");
+
+  const [showFilters, setShowFilters] =
+    useState(false);
 
   useEffect(() => {
     const trimmedSearch =
@@ -48,14 +62,31 @@ function AdminAssignments() {
             );
           }
 
+          params.set(
+            "sort",
+            sort
+          );
+
+          if (dateFrom) {
+            params.set(
+              "date_from",
+              dateFrom
+            );
+          }
+
+          if (dateTo) {
+            params.set(
+              "date_to",
+              dateTo
+            );
+          }
+
           const queryString =
             params.toString();
 
           const response =
             await apiFetch(
-              queryString
-                ? `/admin/assignments?${queryString}`
-                : "/admin/assignments"
+              `/admin/assignments?${queryString}`
             );
 
           if (!response.ok) {
@@ -85,7 +116,12 @@ function AdminAssignments() {
 
     return () =>
       clearTimeout(timeout);
-  }, [search]);
+  }, [
+    search,
+    sort,
+    dateFrom,
+    dateTo,
+  ]);
 
   const formatDate = (
     isoString
@@ -109,9 +145,22 @@ function AdminAssignments() {
     );
   };
 
+  const clearFilters = () => {
+    setSort("newest");
+    setDateFrom("");
+    setDateTo("");
+  };
+
+  const hasFilters =
+    sort !== "newest" ||
+    dateFrom ||
+    dateTo;
+
   return (
     <div className="adminassignments-page app-background">
       <div className="adminassignments-container">
+
+        {/* HEADER */}
         <div className="adminassignments-header">
           <button
             type="button"
@@ -139,6 +188,7 @@ function AdminAssignments() {
           </div>
         </div>
 
+        {/* SEARCH */}
         <div className="adminassignments-search">
           <Search
             size={18}
@@ -172,6 +222,117 @@ function AdminAssignments() {
           )}
         </div>
 
+        {/* FILTER BAR */}
+        <div className="adminassignments-filter-bar">
+
+          <button
+            type="button"
+            className={`adminassignments-filter-toggle ${
+              showFilters
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              setShowFilters(
+                !showFilters
+              )
+            }
+          >
+            <SlidersHorizontal
+              size={17}
+              strokeWidth={1.8}
+            />
+
+            Filters
+
+            {hasFilters && (
+              <span className="adminassignments-filter-dot" />
+            )}
+          </button>
+
+          {hasFilters && (
+            <button
+              type="button"
+              className="adminassignments-reset"
+              onClick={
+                clearFilters
+              }
+            >
+              <RotateCcw
+                size={15}
+                strokeWidth={1.8}
+              />
+
+              Reset
+            </button>
+          )}
+        </div>
+
+        {/* FILTERS */}
+        {showFilters && (
+          <div className="adminassignments-filters">
+
+            <div className="adminassignments-filter-field">
+              <label htmlFor="assignment-sort">
+                Sort
+              </label>
+
+              <select
+                id="assignment-sort"
+                value={sort}
+                onChange={(e) =>
+                  setSort(
+                    e.target.value
+                  )
+                }
+              >
+                <option value="newest">
+                  Newest to oldest
+                </option>
+
+                <option value="oldest">
+                  Oldest to newest
+                </option>
+              </select>
+            </div>
+
+            <div className="adminassignments-filter-field">
+              <label htmlFor="assignment-date-from">
+                From
+              </label>
+
+              <input
+                id="assignment-date-from"
+                type="date"
+                value={dateFrom}
+                onChange={(e) =>
+                  setDateFrom(
+                    e.target.value
+                  )
+                }
+              />
+            </div>
+
+            <div className="adminassignments-filter-field">
+              <label htmlFor="assignment-date-to">
+                To
+              </label>
+
+              <input
+                id="assignment-date-to"
+                type="date"
+                value={dateTo}
+                onChange={(e) =>
+                  setDateTo(
+                    e.target.value
+                  )
+                }
+              />
+            </div>
+
+          </div>
+        )}
+
         {error && (
           <p className="adminassignments-error">
             {error}
@@ -185,8 +346,10 @@ function AdminAssignments() {
         ) : assignments.length ===
           0 ? (
           <p className="adminassignments-empty">
-            {search.trim().length >= 2
-              ? "No assignments matched your search."
+            {search.trim().length >= 2 ||
+            dateFrom ||
+            dateTo
+              ? "No assignments matched your filters."
               : "No assignments uploaded yet."}
           </p>
         ) : (
@@ -268,6 +431,7 @@ function AdminAssignments() {
                             size={14}
                             strokeWidth={2}
                           />
+
                           {
                             assignment.signed_count
                           }

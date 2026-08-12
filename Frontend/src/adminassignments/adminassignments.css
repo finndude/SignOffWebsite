@@ -13,6 +13,10 @@
   max-width: 780px;
 }
 
+/* =========================================================
+   HEADER
+   ========================================================= */
+
 .adminassignments-header {
   display: flex;
   align-items: center;
@@ -50,10 +54,14 @@
   margin: 2px 0 0;
 }
 
+/* =========================================================
+   SEARCH
+   ========================================================= */
+
 .adminassignments-search {
   position: relative;
   width: 100%;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
   display: flex;
   align-items: center;
 }
@@ -110,6 +118,128 @@
   background: #f1f3f7;
 }
 
+/* =========================================================
+   FILTER BAR
+   ========================================================= */
+
+.adminassignments-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.adminassignments-filter-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid #e2e6ee;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #5f6b7d;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.adminassignments-filter-toggle:hover {
+  border-color: #2f5ef5;
+  color: #2f5ef5;
+  background: #f8faff;
+}
+
+.adminassignments-filter-toggle.active {
+  border-color: #2f5ef5;
+  color: #2f5ef5;
+  background: #f8faff;
+}
+
+.adminassignments-filter-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2f5ef5;
+  display: block;
+}
+
+.adminassignments-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 11px;
+  border: none;
+  background: transparent;
+  color: #6b7688;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.adminassignments-reset:hover {
+  background: #f1f3f7;
+  color: #14213d;
+}
+
+/* =========================================================
+   FILTER PANEL
+   ========================================================= */
+
+.adminassignments-filters {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: 12px;
+  padding: 14px;
+  margin-bottom: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #e2e6ee;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(31, 45, 90, 0.07);
+}
+
+.adminassignments-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.adminassignments-filter-field label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #5f6b7d;
+}
+
+.adminassignments-filter-field select,
+.adminassignments-filter-field input {
+  width: 100%;
+  height: 40px;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border: 1px solid #dfe4ec;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #14213d;
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+.adminassignments-filter-field select:focus,
+.adminassignments-filter-field input:focus {
+  border-color: #2f5ef5;
+  box-shadow: 0 0 0 2px rgba(47, 94, 245, 0.08);
+}
+
+/* =========================================================
+   STATES
+   ========================================================= */
+
 .adminassignments-empty {
   text-align: center;
   color: #6b7688;
@@ -126,6 +256,10 @@
   margin-bottom: 16px;
   text-align: center;
 }
+
+/* =========================================================
+   ASSIGNMENT LIST
+   ========================================================= */
 
 .adminassignments-list {
   display: flex;
@@ -213,9 +347,17 @@
   color: #a6660b;
 }
 
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
 @media (max-width: 680px) {
   .adminassignments-page {
     padding: 18px;
+  }
+
+  .adminassignments-filters {
+    grid-template-columns: 1fr;
   }
 
   .adminassignments-row {
