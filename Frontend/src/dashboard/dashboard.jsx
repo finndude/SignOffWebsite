@@ -13,25 +13,34 @@ import "./dashboard.css";
 
 function Dashboard() {
   const navigate = useNavigate();
-  const [role, setRole] = useState(null);
+
+  const [role, setRole] =
+    useState(null);
 
   useEffect(() => {
     apiFetch("/auth/me")
       .then((res) => {
         if (!res.ok) {
-          throw new Error("Failed to load user.");
+          throw new Error(
+            "Failed to load user."
+          );
         }
 
         return res.json();
       })
-      .then((data) => setRole(data.role))
+      .then((data) =>
+        setRole(data.role)
+      )
       .catch(() => {});
   }, []);
 
   const handleLogout = async () => {
-    await apiFetch("/auth/logout", {
-      method: "POST",
-    });
+    await apiFetch(
+      "/auth/logout",
+      {
+        method: "POST",
+      }
+    );
 
     navigate("/");
   };
@@ -79,11 +88,16 @@ function Dashboard() {
     },
   ].filter(
     (action) =>
-      !action.adminOnly || role === "admin"
+      !action.adminOnly ||
+      role === "admin"
   );
+
+  const isRegularUser =
+    role === "assignee";
 
   return (
     <div className="dashboard-page app-background">
+
       <button
         type="button"
         className="dashboard-logout"
@@ -96,7 +110,13 @@ function Dashboard() {
         Log out
       </button>
 
-      <div className="dashboard-shell">
+      <div
+        className={`dashboard-shell ${
+          isRegularUser
+            ? "dashboard-shell-regular"
+            : ""
+        }`}
+      >
         <div className="dashboard-heading">
           <span className="dashboard-kicker">
             {role === "admin"
@@ -104,45 +124,60 @@ function Dashboard() {
               : "Signing workspace"}
           </span>
 
-          <h1>Dashboard</h1>
+          <h1>
+            Dashboard
+          </h1>
 
           <p>
             Choose where you want to go next.
           </p>
         </div>
 
-        <div className="dashboard-action-grid">
-          {dashboardActions.map((action) => {
-            const Icon = action.icon;
+        <div
+          className={`dashboard-action-grid ${
+            isRegularUser
+              ? "dashboard-action-grid-regular"
+              : ""
+          }`}
+        >
+          {dashboardActions.map(
+            (action) => {
+              const Icon =
+                action.icon;
 
-            return (
-              <button
-                key={action.path}
-                type="button"
-                className="dashboard-action-card"
-                onClick={() =>
-                  navigate(action.path)
-                }
-              >
-                <span className="dashboard-action-icon">
-                  <Icon
-                    size={38}
-                    strokeWidth={1.7}
-                  />
-                </span>
-
-                <span className="dashboard-action-text">
-                  <span className="dashboard-action-title">
-                    {action.label}
+              return (
+                <button
+                  key={action.path}
+                  type="button"
+                  className="dashboard-action-card"
+                  onClick={() =>
+                    navigate(
+                      action.path
+                    )
+                  }
+                >
+                  <span className="dashboard-action-icon">
+                    <Icon
+                      size={38}
+                      strokeWidth={1.7}
+                    />
                   </span>
 
-                  <span className="dashboard-action-description">
-                    {action.description}
+                  <span className="dashboard-action-text">
+                    <span className="dashboard-action-title">
+                      {action.label}
+                    </span>
+
+                    <span className="dashboard-action-description">
+                      {
+                        action.description
+                      }
+                    </span>
                   </span>
-                </span>
-              </button>
-            );
-          })}
+                </button>
+              );
+            }
+          )}
         </div>
       </div>
     </div>

@@ -14,41 +14,69 @@ import "./documents.css";
 function Documents() {
   const navigate = useNavigate();
 
-  const [assignments, setAssignments] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [assignments, setAssignments] =
+    useState([]);
 
-  const [sort, setSort] = useState("newest");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [search, setSearch] = useState("");
+  const [isLoading, setIsLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
+
+  const [sort, setSort] =
+    useState("newest");
+
+  const [statusFilter, setStatusFilter] =
+    useState("all");
+
+  const [dateFrom, setDateFrom] =
+    useState("");
+
+  const [dateTo, setDateTo] =
+    useState("");
+
+  const [search, setSearch] =
+    useState("");
 
   const loadAssignments = async () => {
     setIsLoading(true);
     setError("");
 
     try {
-      const params = new URLSearchParams({
-        sort,
-      });
+      const params =
+        new URLSearchParams({
+          sort,
+          status: statusFilter,
+        });
 
-      const trimmedSearch = search.trim();
+      const trimmedSearch =
+        search.trim();
 
       if (trimmedSearch.length >= 2) {
-        params.set("search", trimmedSearch);
+        params.set(
+          "search",
+          trimmedSearch
+        );
       }
 
       if (dateFrom) {
-        params.set("date_from", dateFrom);
+        params.set(
+          "date_from",
+          dateFrom
+        );
       }
 
       if (dateTo) {
-        params.set("date_to", dateTo);
+        params.set(
+          "date_to",
+          dateTo
+        );
       }
 
-      const response = await apiFetch(
-        `/assignments?${params.toString()}`
-      );
+      const response =
+        await apiFetch(
+          `/assignments?${params.toString()}`
+        );
 
       if (!response.ok) {
         throw new Error(
@@ -56,10 +84,13 @@ function Documents() {
         );
       }
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       setAssignments(
-        Array.isArray(data) ? data : []
+        Array.isArray(data)
+          ? data
+          : []
       );
     } catch {
       setError(
@@ -71,17 +102,29 @@ function Documents() {
   };
 
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      loadAssignments();
-    }, 300);
+    const timeout =
+      setTimeout(() => {
+        loadAssignments();
+      }, 300);
 
-    return () => clearTimeout(timeout);
+    return () =>
+      clearTimeout(timeout);
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sort, dateFrom, dateTo, search]);
+  }, [
+    sort,
+    statusFilter,
+    dateFrom,
+    dateTo,
+    search,
+  ]);
 
-  const formatDate = (isoString) =>
-    new Date(isoString).toLocaleDateString(
+  const formatDate = (
+    isoString
+  ) =>
+    new Date(
+      isoString
+    ).toLocaleDateString(
       undefined,
       {
         year: "numeric",
@@ -94,9 +137,15 @@ function Documents() {
     setSearch("");
   };
 
+  const clearDates = () => {
+    setDateFrom("");
+    setDateTo("");
+  };
+
   return (
     <div className="documents-page app-background">
       <div className="documents-container">
+
         <div className="documents-header">
           <button
             type="button"
@@ -118,6 +167,7 @@ function Documents() {
         </div>
 
         <div className="documents-filters">
+
           <div className="documents-search">
             <Search
               size={17}
@@ -129,7 +179,9 @@ function Documents() {
               type="text"
               value={search}
               onChange={(e) =>
-                setSearch(e.target.value)
+                setSearch(
+                  e.target.value
+                )
               }
               placeholder="Search documents or assigned by..."
               aria-label="Search documents"
@@ -151,15 +203,41 @@ function Documents() {
             className="documents-filter-select"
             value={sort}
             onChange={(e) =>
-              setSort(e.target.value)
+              setSort(
+                e.target.value
+              )
             }
+            aria-label="Sort documents"
           >
             <option value="newest">
-              Newest First
+              Newest first
             </option>
 
             <option value="oldest">
-              Oldest First
+              Oldest first
+            </option>
+          </select>
+
+          <select
+            className="documents-filter-select"
+            value={statusFilter}
+            onChange={(e) =>
+              setStatusFilter(
+                e.target.value
+              )
+            }
+            aria-label="Filter documents by status"
+          >
+            <option value="all">
+              All statuses
+            </option>
+
+            <option value="pending">
+              Pending
+            </option>
+
+            <option value="signed">
+              Signed
             </option>
           </select>
 
@@ -185,7 +263,9 @@ function Documents() {
                     : ""
                 }
                 onChange={(e) =>
-                  setDateFrom(e.target.value)
+                  setDateFrom(
+                    e.target.value
+                  )
                 }
               />
             </div>
@@ -213,7 +293,9 @@ function Documents() {
                     : ""
                 }
                 onChange={(e) =>
-                  setDateTo(e.target.value)
+                  setDateTo(
+                    e.target.value
+                  )
                 }
               />
             </div>
@@ -223,14 +305,12 @@ function Documents() {
             <button
               type="button"
               className="documents-clear-filters"
-              onClick={() => {
-                setDateFrom("");
-                setDateTo("");
-              }}
+              onClick={clearDates}
             >
               Clear dates
             </button>
           )}
+
         </div>
 
         {error && (
@@ -247,6 +327,10 @@ function Documents() {
           <p className="documents-empty">
             {search.trim().length >= 2
               ? "No documents matched your search."
+              : statusFilter === "signed"
+              ? "No signed documents found."
+              : statusFilter === "pending"
+              ? "No pending documents found."
               : "No documents assigned to you yet."}
           </p>
         ) : (
@@ -332,6 +416,7 @@ function Documents() {
             )}
           </div>
         )}
+
       </div>
     </div>
   );

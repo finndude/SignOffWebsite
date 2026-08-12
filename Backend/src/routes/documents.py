@@ -4,7 +4,6 @@ from datetime import datetime, date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from PIL import Image
 from pypdf import PdfReader, PdfWriter
@@ -31,12 +30,27 @@ from src.services.storage_service import (
 )
 from src.services.email_service import send_signing_complete_email
 
-router = APIRouter(prefix="/assignments", tags=["documents"])
+
+router = APIRouter(
+    prefix="/assignments",
+    tags=["documents"],
+)
 
 
-@router.get("", response_model=list[AssignmentListItem])
+@router.get(
+    "",
+    response_model=list[AssignmentListItem],
+)
 def list_my_assignments(
-    sort: str = Query("newest", pattern="^(newest|oldest)$"),
+    sort: str = Query(
+        "newest",
+        pattern="^(newest|oldest)$",
+    ),
+    status_filter: str = Query(
+        "all",
+        alias="status",
+        pattern="^(all|pending|signed)$",
+    ),
     search: str | None = Query(None),
     date_from: date | None = None,
     date_to: date | None = None,
@@ -47,11 +61,12 @@ def list_my_assignments(
     Every assignment assigned to the current user.
 
     Supports:
+    - Newest / oldest sorting
+    - Pending / signed status filtering
     - Search by assignment title
-    - Search by person who assigned it
-    - Search by assigning user's email
-    - Date-range filtering
-    - Newest/oldest sorting
+    - Search by assigned-by name
+    - Search by assigned-by email
+    - Date range filtering
     """
 
     query = (
@@ -71,15 +86,37 @@ def list_my_assignments(
         if len(search) >= 2:
             search_term = f"%{search}%"
 
-            query = query.join(
-                Assignment.assigned_by
-            ).filter(
-                or_(
-                    Assignment.title.ilike(search_term),
-                    User.name.ilike(search_term),
-                    User.email.ilike(search_term),
+            query = (
+                query
+                .join(
+                    Assignment.assigned_by
+                )
+                .filter(
+                    Assignment.title.ilike(
+                        search_term
+                    )
+                    | User.name.ilike(
+                        search_term
+                    )
+                    | User.email.ilike(
+                        search_term
+                    )
                 )
             )
+
+    # ---------------------------------------------------------
+    # Status filter
+    # ---------------------------------------------------------
+
+    if status_filter == "signed":
+        query = query.filter(
+            Assignment.status == "signed"
+        )
+
+    elif status_filter == "pending":
+        query = query.filter(
+            Assignment.status != "signed"
+        )
 
     # ---------------------------------------------------------
     # Date filters
@@ -118,12 +155,14 @@ def list_my_assignments(
     results = []
 
     for assignment in assignments:
-        doc_count = len(assignment.documents)
+        doc_count = len(
+            assignment.documents
+        )
 
         signed_count = sum(
             1
-            for d in assignment.documents
-            if d.is_signed
+            for document in assignment.documents
+            if document.is_signed
         )
 
         results.append(
@@ -132,7 +171,9 @@ def list_my_assignments(
                 title=assignment.title,
                 status=assignment.status,
                 created_at=assignment.created_at,
-                assigned_by_name=assignment.assigned_by.name,
+                assigned_by_name=(
+                    assignment.assigned_by.name
+                ),
                 document_count=doc_count,
                 signed_count=signed_count,
             )
@@ -153,7 +194,9 @@ def _get_owned_assignment(
 
     assignment = (
         db.query(Assignment)
-        .filter(Assignment.id == assignment_id)
+        .filter(
+            Assignment.id == assignment_id
+        )
         .first()
     )
 
@@ -163,7 +206,10 @@ def _get_owned_assignment(
             detail="Assignment not found.",
         )
 
-    if assignment.assigned_to_id != current_user.id:
+    if (
+        assignment.assigned_to_id
+        != current_user.id
+    ):
         raise HTTPException(
             status_code=403,
             detail="This assignment isn't yours.",
@@ -184,7 +230,9 @@ def _get_viewable_assignment(
 
     assignment = (
         db.query(Assignment)
-        .filter(Assignment.id == assignment_id)
+        .filter(
+            Assignment.id == assignment_id
+        )
         .first()
     )
 
@@ -195,8 +243,10 @@ def _get_viewable_assignment(
         )
 
     if (
-        assignment.assigned_to_id != current_user.id
-        and assignment.assigned_by_id != current_user.id
+        assignment.assigned_to_id
+        != current_user.id
+        and assignment.assigned_by_id
+        != current_user.id
     ):
         raise HTTPException(
             status_code=403,
@@ -251,9 +301,9 @@ def download_document(
 
     document = next(
         (
-            d
-            for d in assignment.documents
-            if str(d.id) == document_id
+            document
+            for document in assignment.documents
+            if str(document.id) == document_id
         ),
         None,
     )
@@ -288,9 +338,9 @@ def view_document_file(
 
     document = next(
         (
-            d
-            for d in assignment.documents
-            if str(d.id) == document_id
+            document
+            for document in assignment.documents
+            if str(document.id) == document_id
         ),
         None,
     )
@@ -351,9 +401,9 @@ def sign_document(
 
     document = next(
         (
-            d
-            for d in assignment.documents
-            if str(d.id) == document_id
+            document
+            for document in assignment.documents
+            if str(document.id) == document_id
         ),
         None,
     )
@@ -370,10 +420,19 @@ def sign_document(
             detail="Please place your signature on at least one page.",
         )
 
-    raw_data = payload.signature_data_url.split(",")[-1]
+    # ---------------------------------------------------------
+    # Decode signature image
+    # ---------------------------------------------------------
+
+    raw_data = (
+        payload.signature_data_url
+        .split(",")[-1]
+    )
 
     try:
-        image_bytes = base64.b64decode(raw_data)
+        image_bytes = base64.b64decode(
+            raw_data
+        )
 
         signature_image = Image.open(
             io.BytesIO(image_bytes)
@@ -389,12 +448,18 @@ def sign_document(
         image_bytes
     )
 
+    # ---------------------------------------------------------
+    # Download original PDF
+    # ---------------------------------------------------------
+
     try:
         stored_file = get_file_from_storage(
             document.storage_key
         )
 
-        original_pdf_bytes = stored_file["Body"].read()
+        original_pdf_bytes = (
+            stored_file["Body"].read()
+        )
 
     except Exception:
         raise HTTPException(
@@ -402,9 +467,15 @@ def sign_document(
             detail="Couldn't load this document from storage.",
         )
 
+    # ---------------------------------------------------------
+    # Read PDF
+    # ---------------------------------------------------------
+
     try:
         reader = PdfReader(
-            io.BytesIO(original_pdf_bytes)
+            io.BytesIO(
+                original_pdf_bytes
+            )
         )
 
         writer = PdfWriter()
@@ -418,17 +489,31 @@ def sign_document(
             detail="Couldn't process this PDF.",
         )
 
+    # ---------------------------------------------------------
+    # Add every signature
+    # ---------------------------------------------------------
+
     for signature in payload.signatures:
 
-        page_number = signature.page_number
+        page_number = (
+            signature.page_number
+        )
 
-        if page_number < 0 or page_number >= len(reader.pages):
+        if (
+            page_number < 0
+            or page_number >= len(reader.pages)
+        ):
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid page number: {page_number + 1}.",
+                detail=(
+                    f"Invalid page number: "
+                    f"{page_number + 1}."
+                ),
             )
 
-        page = writer.pages[page_number]
+        page = writer.pages[
+            page_number
+        ]
 
         pdf_page_width = float(
             page.mediabox.width
@@ -448,16 +533,18 @@ def sign_document(
             )
 
         scale_x = (
-            pdf_page_width /
-            signature.page_width
+            pdf_page_width
+            / signature.page_width
         )
 
         scale_y = (
-            pdf_page_height /
-            signature.page_height
+            pdf_page_height
+            / signature.page_height
         )
 
-        pdf_x = signature.x * scale_x
+        pdf_x = (
+            signature.x * scale_x
+        )
 
         pdf_width = (
             signature.width * scale_x
@@ -470,7 +557,8 @@ def sign_document(
         pdf_y = (
             pdf_page_height
             - (
-                signature.y * scale_y
+                signature.y
+                * scale_y
             )
             - pdf_height
         )
@@ -479,7 +567,8 @@ def sign_document(
             0,
             min(
                 pdf_x,
-                pdf_page_width - pdf_width,
+                pdf_page_width
+                - pdf_width,
             ),
         )
 
@@ -487,7 +576,8 @@ def sign_document(
             0,
             min(
                 pdf_y,
-                pdf_page_height - pdf_height,
+                pdf_page_height
+                - pdf_height,
             ),
         )
 
@@ -527,11 +617,23 @@ def sign_document(
             signature_pdf.pages[0]
         )
 
+    # ---------------------------------------------------------
+    # Write completed PDF
+    # ---------------------------------------------------------
+
     output_buffer = io.BytesIO()
 
-    writer.write(output_buffer)
+    writer.write(
+        output_buffer
+    )
 
-    signed_pdf_bytes = output_buffer.getvalue()
+    signed_pdf_bytes = (
+        output_buffer.getvalue()
+    )
+
+    # ---------------------------------------------------------
+    # Overwrite original PDF
+    # ---------------------------------------------------------
 
     try:
         overwrite_file_in_storage(
@@ -546,9 +648,19 @@ def sign_document(
             detail="Couldn't save the signed document to storage.",
         )
 
-    document.signature_storage_key = signature_key
+    # ---------------------------------------------------------
+    # Update database
+    # ---------------------------------------------------------
+
+    document.signature_storage_key = (
+        signature_key
+    )
+
     document.is_signed = True
-    document.signed_at = datetime.utcnow()
+
+    document.signed_at = (
+        datetime.utcnow()
+    )
 
     db.commit()
     db.refresh(document)
@@ -575,9 +687,9 @@ def confirm_assignment(
     )
 
     unsigned = [
-        d
-        for d in assignment.documents
-        if not d.is_signed
+        document
+        for document in assignment.documents
+        if not document.is_signed
     ]
 
     if unsigned:
@@ -590,6 +702,7 @@ def confirm_assignment(
         )
 
     assignment.status = "signed"
+
     db.commit()
 
     try:
@@ -597,10 +710,11 @@ def confirm_assignment(
             current_user.email,
             current_user.name,
             [
-                d.filename
-                for d in assignment.documents
+                document.filename
+                for document in assignment.documents
             ],
         )
+
     except Exception as e:
         print(
             f"[signing confirmation email failed] "

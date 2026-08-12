@@ -1,6 +1,5 @@
 import secrets
 from uuid import UUID
-from datetime import date, datetime
 
 from fastapi import (
     APIRouter,
@@ -26,18 +25,29 @@ from src.schemas.admin import (
     InviteUserResponse,
     UpdateUserRoleRequest,
 )
-from src.schemas.documents import UserSummary, UploadDocumentsResponse
+from src.schemas.documents import (
+    UserSummary,
+    UploadDocumentsResponse,
+)
 from src.routes.auth import get_current_user
-from src.security import hash_password, create_invite_token
+from src.security import (
+    hash_password,
+    create_invite_token,
+)
 from src.services.email_service import (
     send_documents_assigned_email,
     send_invite_email,
 )
-from src.services.storage_service import upload_file_to_storage
+from src.services.storage_service import (
+    upload_file_to_storage,
+)
 from src.config import settings
 
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+router = APIRouter(
+    prefix="/admin",
+    tags=["admin"],
+)
 
 
 def require_admin(
@@ -45,7 +55,6 @@ def require_admin(
 ) -> User:
     """
     Dependency — only lets admins through.
-    Everyone else receives a 403 response.
     """
 
     if current_user.role != "admin":
@@ -68,7 +77,9 @@ def invite_user(
 ):
     existing = (
         db.query(User)
-        .filter(User.email == payload.email)
+        .filter(
+            User.email == payload.email
+        )
         .first()
     )
 
@@ -78,7 +89,9 @@ def invite_user(
             detail="A user with that email already exists.",
         )
 
-    placeholder_password = secrets.token_urlsafe(32)
+    placeholder_password = (
+        secrets.token_urlsafe(32)
+    )
 
     new_user = User(
         name=payload.name,
@@ -109,6 +122,7 @@ def invite_user(
             new_user.name,
             invite_link,
         )
+
     except Exception as e:
         print(
             f"[invite email failed] "
@@ -124,13 +138,11 @@ def invite_user(
         )
 
     return {
-        "detail": f"Invite sent to {new_user.email}."
+        "detail": (
+            f"Invite sent to {new_user.email}."
+        )
     }
 
-
-# =========================================================
-# ADMIN ASSIGNMENTS
-# =========================================================
 
 @router.get(
     "/assignments",
@@ -138,80 +150,93 @@ def invite_user(
 )
 def list_admin_assignments(
     search: str | None = Query(None),
-    sort: str = Query(
-        "newest",
-        pattern="^(newest|oldest)$",
+    status_filter: str = Query(
+        "all",
+        alias="status",
+        pattern="^(all|signed|not_signed)$",
     ),
-    date_from: date | None = None,
-    date_to: date | None = None,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
     """
     Every assignment uploaded by this admin.
 
-    Supports:
-    - Assignment title search
-    - Assignee name search
-    - Assignee email search
-    - Newest/oldest sorting
-    - Date range filtering
+    Search supports:
+    - Assignment title
+    - Assignee name
+    - Assignee email
+
+    Status supports:
+    - all
+    - signed
+    - not_signed
     """
 
     query = (
         db.query(Assignment)
         .filter(
-            Assignment.assigned_by_id == admin.id
+            Assignment.assigned_by_id
+            == admin.id
         )
     )
+
+    # ---------------------------------------------------------
+    # Search
+    # ---------------------------------------------------------
 
     if search:
         search = search.strip()
 
         if len(search) >= 2:
-            search_term = f"%{search}%"
+            search_term = (
+                f"%{search}%"
+            )
 
-            query = query.join(
-                Assignment.assigned_to
-            ).filter(
-                or_(
-                    Assignment.title.ilike(
-                        search_term
-                    ),
-                    User.name.ilike(
-                        search_term
-                    ),
-                    User.email.ilike(
-                        search_term
-                    ),
+            query = (
+                query
+                .join(
+                    Assignment.assigned_to
+                )
+                .filter(
+                    or_(
+                        Assignment.title.ilike(
+                            search_term
+                        ),
+                        User.name.ilike(
+                            search_term
+                        ),
+                        User.email.ilike(
+                            search_term
+                        ),
+                    )
                 )
             )
 
-    if date_from:
+    # ---------------------------------------------------------
+    # Status filter
+    # ---------------------------------------------------------
+
+    if status_filter == "signed":
         query = query.filter(
-            Assignment.created_at
-            >= datetime.combine(
-                date_from,
-                datetime.min.time(),
-            )
+            Assignment.status == "signed"
         )
 
-    if date_to:
+    elif status_filter == "not_signed":
         query = query.filter(
-            Assignment.created_at
-            <= datetime.combine(
-                date_to,
-                datetime.max.time(),
-            )
+            Assignment.status != "signed"
         )
 
-    query = query.order_by(
-        Assignment.created_at.desc()
-        if sort == "newest"
-        else Assignment.created_at.asc()
+    # ---------------------------------------------------------
+    # Sorting
+    # ---------------------------------------------------------
+
+    assignments = (
+        query
+        .order_by(
+            Assignment.created_at.desc()
+        )
+        .all()
     )
-
-    assignments = query.all()
 
     results = []
 
@@ -246,10 +271,6 @@ def list_admin_assignments(
     return results
 
 
-# =========================================================
-# USERS
-# =========================================================
-
 @router.get(
     "/users",
     response_model=list[AdminUserResponse],
@@ -261,10 +282,6 @@ def list_all_users(
 ):
     """
     Return all users for the admin user-management screen.
-
-    Search supports:
-    - User name
-    - User email
     """
 
     query = db.query(User)
@@ -273,7 +290,9 @@ def list_all_users(
         search = search.strip()
 
         if len(search) >= 2:
-            search_term = f"%{search}%"
+            search_term = (
+                f"%{search}%"
+            )
 
             query = query.filter(
                 or_(
@@ -288,7 +307,9 @@ def list_all_users(
 
     return (
         query
-        .order_by(User.name.asc())
+        .order_by(
+            User.name.asc()
+        )
         .all()
     )
 
@@ -317,7 +338,9 @@ def update_user_role(
 
     user = (
         db.query(User)
-        .filter(User.id == user_id)
+        .filter(
+            User.id == user_id
+        )
         .first()
     )
 
@@ -360,10 +383,6 @@ def list_assignable_users(
     Users for the assignee picker on the upload screen.
 
     Only regular signers are returned.
-
-    Search supports:
-    - User name
-    - User email
     """
 
     query = (
@@ -377,7 +396,9 @@ def list_assignable_users(
         search = search.strip()
 
         if len(search) >= 2:
-            search_term = f"%{search}%"
+            search_term = (
+                f"%{search}%"
+            )
 
             query = query.filter(
                 or_(
@@ -392,15 +413,13 @@ def list_assignable_users(
 
     return (
         query
-        .order_by(User.name.asc())
+        .order_by(
+            User.name.asc()
+        )
         .limit(50)
         .all()
     )
 
-
-# =========================================================
-# DOCUMENT UPLOAD
-# =========================================================
 
 @router.post(
     "/documents/upload",
@@ -484,10 +503,12 @@ async def upload_documents(
 
         file_bytes = await upload.read()
 
-        storage_key = upload_file_to_storage(
-            file_bytes,
-            upload.filename,
-            upload.content_type,
+        storage_key = (
+            upload_file_to_storage(
+                file_bytes,
+                upload.filename,
+                upload.content_type,
+            )
         )
 
         document = Document(
@@ -497,7 +518,9 @@ async def upload_documents(
         )
 
         db.add(document)
-        created_documents.append(document)
+        created_documents.append(
+            document
+        )
 
     db.commit()
 
@@ -509,11 +532,12 @@ async def upload_documents(
             assignee.email,
             assignee.name,
             [
-                doc.filename
-                for doc in created_documents
+                document.filename
+                for document in created_documents
             ],
             f"{settings.frontend_url}/dashboard",
         )
+
     except Exception as e:
         print(
             f"[assignment email failed] "

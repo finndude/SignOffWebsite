@@ -53,7 +53,7 @@
 .adminassignments-filters {
   display: flex;
   flex-wrap: wrap;
-  align-items: end;
+  align-items: center;
   gap: 12px;
   background: #ffffff;
   border: 1px solid #e2e6ee;
@@ -64,30 +64,31 @@
 
 .adminassignments-search {
   position: relative;
-  width: 100%;
+  flex: 1;
+  min-width: 240px;
   display: flex;
   align-items: center;
 }
 
 .adminassignments-search-icon {
   position: absolute;
-  left: 13px;
+  left: 14px;
   color: #8a93a6;
   pointer-events: none;
 }
 
 .adminassignments-search input {
   width: 100%;
-  height: 42px;
+  height: 44px;
   box-sizing: border-box;
   border: 1px solid #e2e6ee;
-  border-radius: 9px;
-  padding: 0 40px 0 40px;
-  font-size: 14px;
-  color: #14213d;
+  border-radius: 10px;
+  padding: 0 42px 0 42px;
   background: #ffffff;
-  outline: none;
+  color: #14213d;
+  font-size: 14px;
   font-family: inherit;
+  outline: none;
 }
 
 .adminassignments-search input::placeholder {
@@ -122,77 +123,20 @@
 }
 
 .adminassignments-filter-select {
-  height: 40px;
+  height: 44px;
   border: 1px solid #e2e6ee;
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 0 12px;
   font-size: 13.5px;
   color: #14213d;
-  background: #fff;
-}
-
-.adminassignments-date-filter {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.adminassignments-date-filter label {
-  font-size: 12px;
-  color: #6b7688;
-  font-weight: 600;
-}
-
-.adminassignments-date-input-wrapper {
-  position: relative;
-  width: 100%;
-}
-
-.adminassignments-date-filter input {
-  height: 40px;
-  width: 100%;
-  box-sizing: border-box;
-  border: 1px solid #e2e6ee;
-  border-radius: 8px;
-  padding: 0 10px;
-  font-size: 13.5px;
-  color: #14213d;
   background: #ffffff;
+  font-family: inherit;
 }
 
-.adminassignments-date-filter input.adminassignments-date-input-empty {
-  color: transparent;
-}
-
-.adminassignments-date-filter input {
-  color-scheme: light;
-}
-
-.adminassignments-date-filter input:focus {
+.adminassignments-filter-select:focus {
   outline: none;
   border-color: #2f5ef5;
   box-shadow: 0 0 0 2px rgba(47, 94, 245, 0.08);
-}
-
-.adminassignments-date-placeholder {
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #8a93a6;
-  font-size: 13.5px;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.adminassignments-clear-filters {
-  height: 40px;
-  background: none;
-  border: none;
-  color: #2f5ef5;
-  font-size: 13.5px;
-  font-weight: 600;
-  cursor: pointer;
 }
 
 .adminassignments-empty {
@@ -298,7 +242,7 @@
   color: #a6660b;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 680px) {
   .adminassignments-page {
     padding: 18px;
   }
@@ -307,13 +251,14 @@
     align-items: stretch;
   }
 
-  .adminassignments-filter-select {
+  .adminassignments-search {
     width: 100%;
+    min-width: 0;
+    flex-basis: 100%;
   }
 
-  .adminassignments-date-filter {
-    flex: 1;
-    min-width: 120px;
+  .adminassignments-filter-select {
+    width: 100%;
   }
 
   .adminassignments-row {

@@ -26,94 +26,81 @@ function AdminAssignments() {
   const [search, setSearch] =
     useState("");
 
-  const [sort, setSort] =
-    useState("newest");
-
-  const [dateFrom, setDateFrom] =
-    useState("");
-
-  const [dateTo, setDateTo] =
-    useState("");
-
-  const loadAssignments = async () => {
-    setIsLoading(true);
-    setError("");
-
-    try {
-      const params =
-        new URLSearchParams({
-          sort,
-        });
-
-      const trimmedSearch =
-        search.trim();
-
-      if (
-        trimmedSearch.length >= 2
-      ) {
-        params.set(
-          "search",
-          trimmedSearch
-        );
-      }
-
-      if (dateFrom) {
-        params.set(
-          "date_from",
-          dateFrom
-        );
-      }
-
-      if (dateTo) {
-        params.set(
-          "date_to",
-          dateTo
-        );
-      }
-
-      const response =
-        await apiFetch(
-          `/admin/assignments?${params.toString()}`
-        );
-
-      if (!response.ok) {
-        throw new Error(
-          "Failed to load assignments."
-        );
-      }
-
-      const data =
-        await response.json();
-
-      setAssignments(
-        Array.isArray(data)
-          ? data
-          : []
-      );
-    } catch {
-      setError(
-        "Couldn't load assignments. Please try again."
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const [statusFilter, setStatusFilter] =
+    useState("all");
 
   useEffect(() => {
+    const trimmedSearch =
+      search.trim();
+
     const timeout =
-      setTimeout(() => {
-        loadAssignments();
-      }, 300);
+      setTimeout(
+        async () => {
+          setIsLoading(true);
+          setError("");
+
+          try {
+            const params =
+              new URLSearchParams();
+
+            if (
+              trimmedSearch.length >= 2
+            ) {
+              params.set(
+                "search",
+                trimmedSearch
+              );
+            }
+
+            if (
+              statusFilter !== "all"
+            ) {
+              params.set(
+                "status",
+                statusFilter
+              );
+            }
+
+            const queryString =
+              params.toString();
+
+            const response =
+              await apiFetch(
+                queryString
+                  ? `/admin/assignments?${queryString}`
+                  : "/admin/assignments"
+              );
+
+            if (!response.ok) {
+              throw new Error(
+                "Failed to load assignments."
+              );
+            }
+
+            const data =
+              await response.json();
+
+            setAssignments(
+              Array.isArray(data)
+                ? data
+                : []
+            );
+          } catch {
+            setError(
+              "Couldn't load assignments. Please try again."
+            );
+          } finally {
+            setIsLoading(false);
+          }
+        },
+        300
+      );
 
     return () =>
       clearTimeout(timeout);
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     search,
-    sort,
-    dateFrom,
-    dateTo,
+    statusFilter,
   ]);
 
   const formatDate = (
@@ -136,10 +123,6 @@ function AdminAssignments() {
     navigate(
       `/documents/${assignmentId}`
     );
-  };
-
-  const clearSearch = () => {
-    setSearch("");
   };
 
   return (
@@ -198,8 +181,8 @@ function AdminAssignments() {
               <button
                 type="button"
                 className="adminassignments-search-clear"
-                onClick={
-                  clearSearch
+                onClick={() =>
+                  setSearch("")
                 }
                 aria-label="Clear search"
               >
@@ -210,94 +193,27 @@ function AdminAssignments() {
 
           <select
             className="adminassignments-filter-select"
-            value={sort}
+            value={statusFilter}
             onChange={(e) =>
-              setSort(
+              setStatusFilter(
                 e.target.value
               )
             }
+            aria-label="Filter assignments by status"
           >
-            <option value="newest">
-              Newest first
+            <option value="all">
+              All statuses
             </option>
 
-            <option value="oldest">
-              Oldest first
+            <option value="not_signed">
+              Not signed
+            </option>
+
+            <option value="signed">
+              Signed off
             </option>
           </select>
 
-          <div className="adminassignments-date-filter">
-            <label htmlFor="adminDateFrom">
-              From
-            </label>
-
-            <div className="adminassignments-date-input-wrapper">
-              {!dateFrom && (
-                <span className="adminassignments-date-placeholder">
-                  Select a date
-                </span>
-              )}
-
-              <input
-                id="adminDateFrom"
-                type="date"
-                value={dateFrom}
-                className={
-                  !dateFrom
-                    ? "adminassignments-date-input-empty"
-                    : ""
-                }
-                onChange={(e) =>
-                  setDateFrom(
-                    e.target.value
-                  )
-                }
-              />
-            </div>
-          </div>
-
-          <div className="adminassignments-date-filter">
-            <label htmlFor="adminDateTo">
-              To
-            </label>
-
-            <div className="adminassignments-date-input-wrapper">
-              {!dateTo && (
-                <span className="adminassignments-date-placeholder">
-                  Select a date
-                </span>
-              )}
-
-              <input
-                id="adminDateTo"
-                type="date"
-                value={dateTo}
-                className={
-                  !dateTo
-                    ? "adminassignments-date-input-empty"
-                    : ""
-                }
-                onChange={(e) =>
-                  setDateTo(
-                    e.target.value
-                  )
-                }
-              />
-            </div>
-          </div>
-
-          {(dateFrom || dateTo) && (
-            <button
-              type="button"
-              className="adminassignments-clear-filters"
-              onClick={() => {
-                setDateFrom("");
-                setDateTo("");
-              }}
-            >
-              Clear dates
-            </button>
-          )}
         </div>
 
         {error && (
@@ -315,6 +231,12 @@ function AdminAssignments() {
           <p className="adminassignments-empty">
             {search.trim().length >= 2
               ? "No assignments matched your search."
+              : statusFilter ===
+                "signed"
+              ? "No signed-off assignments found."
+              : statusFilter ===
+                "not_signed"
+              ? "No unsigned assignments found."
               : "No assignments uploaded yet."}
           </p>
         ) : (
@@ -413,6 +335,7 @@ function AdminAssignments() {
             )}
           </div>
         )}
+
       </div>
     </div>
   );
