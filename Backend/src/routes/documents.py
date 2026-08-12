@@ -4,6 +4,7 @@ from datetime import datetime, date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from PIL import Image
 from pypdf import PdfReader, PdfWriter
@@ -36,18 +37,53 @@ router = APIRouter(prefix="/assignments", tags=["documents"])
 @router.get("", response_model=list[AssignmentListItem])
 def list_my_assignments(
     sort: str = Query("newest", pattern="^(newest|oldest)$"),
+    search: str | None = Query(None),
     date_from: date | None = None,
     date_to: date | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
-    Every assignment (upload batch) assigned to the current user,
-    with optional date-range filtering and newest/oldest sorting.
+    Every assignment assigned to the current user.
+
+    Supports:
+    - Search by assignment title
+    - Search by person who assigned it
+    - Search by assigning user's email
+    - Date-range filtering
+    - Newest/oldest sorting
     """
-    query = db.query(Assignment).filter(
-        Assignment.assigned_to_id == current_user.id
+
+    query = (
+        db.query(Assignment)
+        .filter(
+            Assignment.assigned_to_id == current_user.id
+        )
     )
+
+    # ---------------------------------------------------------
+    # Search
+    # ---------------------------------------------------------
+
+    if search:
+        search = search.strip()
+
+        if len(search) >= 2:
+            search_term = f"%{search}%"
+
+            query = query.join(
+                Assignment.assigned_by
+            ).filter(
+                or_(
+                    Assignment.title.ilike(search_term),
+                    User.name.ilike(search_term),
+                    User.email.ilike(search_term),
+                )
+            )
+
+    # ---------------------------------------------------------
+    # Date filters
+    # ---------------------------------------------------------
 
     if date_from:
         query = query.filter(
@@ -67,6 +103,10 @@ def list_my_assignments(
             )
         )
 
+    # ---------------------------------------------------------
+    # Sorting
+    # ---------------------------------------------------------
+
     query = query.order_by(
         Assignment.created_at.desc()
         if sort == "newest"
@@ -79,6 +119,7 @@ def list_my_assignments(
 
     for assignment in assignments:
         doc_count = len(assignment.documents)
+
         signed_count = sum(
             1
             for d in assignment.documents
@@ -109,6 +150,7 @@ def _get_owned_assignment(
     Fetches an assignment and checks it actually belongs
     to the current user.
     """
+
     assignment = (
         db.query(Assignment)
         .filter(Assignment.id == assignment_id)
@@ -139,6 +181,7 @@ def _get_viewable_assignment(
     Fetches an assignment and allows access to the signer
     or the admin who assigned it.
     """
+
     assignment = (
         db.query(Assignment)
         .filter(Assignment.id == assignment_id)
@@ -327,10 +370,6 @@ def sign_document(
             detail="Please place your signature on at least one page.",
         )
 
-    # ---------------------------------------------------------
-    # Decode the signature image
-    # ---------------------------------------------------------
-
     raw_data = payload.signature_data_url.split(",")[-1]
 
     try:
@@ -346,14 +385,9 @@ def sign_document(
             detail="Signature data is invalid.",
         )
 
-    # Store the original signature image.
     signature_key = upload_signature_to_storage(
         image_bytes
     )
-
-    # ---------------------------------------------------------
-    # Download the original PDF
-    # ---------------------------------------------------------
 
     try:
         stored_file = get_file_from_storage(
@@ -367,10 +401,6 @@ def sign_document(
             status_code=502,
             detail="Couldn't load this document from storage.",
         )
-
-    # ---------------------------------------------------------
-    # Read PDF
-    # ---------------------------------------------------------
 
     try:
         reader = PdfReader(
@@ -388,10 +418,6 @@ def sign_document(
             detail="Couldn't process this PDF.",
         )
 
-    # ---------------------------------------------------------
-    # Add every signature
-    # ---------------------------------------------------------
-
     for signature in payload.signatures:
 
         page_number = signature.page_number
@@ -404,10 +430,6 @@ def sign_document(
 
         page = writer.pages[page_number]
 
-        # -----------------------------------------------------
-        # Get the REAL PDF page dimensions
-        # -----------------------------------------------------
-
         pdf_page_width = float(
             page.mediabox.width
         )
@@ -415,10 +437,6 @@ def sign_document(
         pdf_page_height = float(
             page.mediabox.height
         )
-
-        # -----------------------------------------------------
-        # Validate frontend page dimensions
-        # -----------------------------------------------------
 
         if (
             signature.page_width <= 0
@@ -428,16 +446,6 @@ def sign_document(
                 status_code=400,
                 detail="Invalid rendered page dimensions.",
             )
-
-        # -----------------------------------------------------
-        # Convert frontend coordinates to PDF coordinates
-        #
-        # Frontend:
-        #   origin = top-left
-        #
-        # PDF:
-        #   origin = bottom-left
-        # -----------------------------------------------------
 
         scale_x = (
             pdf_page_width /
@@ -467,10 +475,6 @@ def sign_document(
             - pdf_height
         )
 
-        # -----------------------------------------------------
-        # Safety: keep signature inside PDF page
-        # -----------------------------------------------------
-
         pdf_x = max(
             0,
             min(
@@ -487,10 +491,6 @@ def sign_document(
             ),
         )
 
-        # -----------------------------------------------------
-        # Create transparent PDF overlay
-        # -----------------------------------------------------
-
         overlay_buffer = io.BytesIO()
 
         overlay = canvas.Canvas(
@@ -501,8 +501,6 @@ def sign_document(
             ),
         )
 
-        # ReportLab expects an ImageReader/image source here.
-        # Passing BytesIO directly causes a TypeError on Render.
         signature_image_reader = ImageReader(
             signature_image
         )
@@ -525,27 +523,15 @@ def sign_document(
             overlay_buffer
         )
 
-        # -----------------------------------------------------
-        # Merge signature onto the correct page
-        # -----------------------------------------------------
-
         page.merge_page(
             signature_pdf.pages[0]
         )
-
-    # ---------------------------------------------------------
-    # Write completed PDF
-    # ---------------------------------------------------------
 
     output_buffer = io.BytesIO()
 
     writer.write(output_buffer)
 
     signed_pdf_bytes = output_buffer.getvalue()
-
-    # ---------------------------------------------------------
-    # OVERWRITE ORIGINAL PDF
-    # ---------------------------------------------------------
 
     try:
         overwrite_file_in_storage(
@@ -559,10 +545,6 @@ def sign_document(
             status_code=502,
             detail="Couldn't save the signed document to storage.",
         )
-
-    # ---------------------------------------------------------
-    # Update database
-    # ---------------------------------------------------------
 
     document.signature_storage_key = signature_key
     document.is_signed = True

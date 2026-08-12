@@ -52,6 +52,65 @@
   margin-bottom: 20px;
 }
 
+.documents-search {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.documents-search-icon {
+  position: absolute;
+  left: 13px;
+  color: #8a93a6;
+  pointer-events: none;
+}
+
+.documents-search input {
+  width: 100%;
+  height: 42px;
+  box-sizing: border-box;
+  border: 1px solid #e2e6ee;
+  border-radius: 9px;
+  padding: 0 40px 0 40px;
+  font-size: 14px;
+  color: #14213d;
+  background: #ffffff;
+  outline: none;
+  font-family: inherit;
+}
+
+.documents-search input::placeholder {
+  color: #9aa4b8;
+}
+
+.documents-search input:focus {
+  border-color: #2f5ef5;
+  box-shadow: 0 0 0 2px rgba(47, 94, 245, 0.08);
+}
+
+.documents-search-clear {
+  position: absolute;
+  right: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: none;
+  color: #8a93a6;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+}
+
+.documents-search-clear:hover {
+  color: #14213d;
+  background: #f1f3f7;
+}
+
 .documents-filter-select {
   height: 40px;
   border: 1px solid #e2e6ee;
@@ -91,20 +150,10 @@
   background: #ffffff;
 }
 
-/*
- * When the date is empty, hide the browser's native
- * dd/mm/yyyy placeholder so it doesn't overlap with
- * our custom "Select a date" text.
- *
- * The calendar icon remains visible.
- */
 .documents-date-filter input.documents-date-input-empty {
   color: transparent;
 }
 
-/*
- * Keep the native date picker light.
- */
 .documents-date-filter input {
   color-scheme: light;
 }
@@ -115,9 +164,6 @@
   box-shadow: 0 0 0 2px rgba(47, 94, 245, 0.08);
 }
 
-/*
- * Custom placeholder shown when no date is selected.
- */
 .documents-date-placeholder {
   position: absolute;
   left: 10px;
@@ -241,5 +287,18 @@
 @media (max-width: 600px) {
   .documents-row-meta {
     display: none;
+  }
+
+  .documents-filters {
+    align-items: stretch;
+  }
+
+  .documents-filter-select {
+    width: 100%;
+  }
+
+  .documents-date-filter {
+    flex: 1;
+    min-width: 120px;
   }
 }

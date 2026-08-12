@@ -7,9 +7,11 @@ from fastapi import (
     File,
     Form,
     HTTPException,
+    Query,
     UploadFile,
     status,
 )
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from src.database import get_db
@@ -36,11 +38,14 @@ from src.config import settings
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
-def require_admin(current_user: User = Depends(get_current_user)) -> User:
+def require_admin(
+    current_user: User = Depends(get_current_user),
+) -> User:
     """
     Dependency — only lets admins through.
     Everyone else receives a 403 response.
     """
+
     if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -50,13 +55,20 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
-@router.post("/invite-user", response_model=InviteUserResponse)
+@router.post(
+    "/invite-user",
+    response_model=InviteUserResponse,
+)
 def invite_user(
     payload: InviteUserRequest,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    existing = db.query(User).filter(User.email == payload.email).first()
+    existing = (
+        db.query(User)
+        .filter(User.email == payload.email)
+        .first()
+    )
 
     if existing:
         raise HTTPException(
@@ -64,14 +76,14 @@ def invite_user(
             detail="A user with that email already exists.",
         )
 
-    # Placeholder password — unusable on its own since it is never given
-    # to the user. They set their real password through the activation link.
     placeholder_password = secrets.token_urlsafe(32)
 
     new_user = User(
         name=payload.name,
         email=payload.email,
-        hashed_password=hash_password(placeholder_password),
+        hashed_password=hash_password(
+            placeholder_password
+        ),
         role=payload.role,
         is_pending_activation=True,
     )
@@ -80,9 +92,13 @@ def invite_user(
     db.commit()
     db.refresh(new_user)
 
-    invite_token = create_invite_token(str(new_user.id))
+    invite_token = create_invite_token(
+        str(new_user.id)
+    )
+
     invite_link = (
-        f"{settings.frontend_url}/activate-account?token={invite_token}"
+        f"{settings.frontend_url}/activate-account"
+        f"?token={invite_token}"
     )
 
     try:
@@ -92,7 +108,6 @@ def invite_user(
             invite_link,
         )
     except Exception as e:
-        # User record stays either way.
         print(
             f"[invite email failed] "
             f"{type(e).__name__}: {e}"
@@ -100,7 +115,10 @@ def invite_user(
 
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="User was created, but the invite email failed to send.",
+            detail=(
+                "User was created, but the invite email "
+                "failed to send."
+            ),
         )
 
     return {
@@ -113,23 +131,62 @@ def invite_user(
     response_model=list[AdminAssignmentListItem],
 )
 def list_admin_assignments(
+    search: str | None = Query(None),
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
     """
-    Every assignment uploaded by this admin, with signing progress.
+    Every assignment uploaded by this admin.
+
+    Search supports:
+    - Assignment title
+    - Assignee name
+    - Assignee email
     """
-    assignments = (
+
+    query = (
         db.query(Assignment)
-        .filter(Assignment.assigned_by_id == admin.id)
-        .order_by(Assignment.created_at.desc())
+        .filter(
+            Assignment.assigned_by_id == admin.id
+        )
+    )
+
+    if search:
+        search = search.strip()
+
+        if len(search) >= 2:
+            search_term = f"%{search}%"
+
+            query = query.join(
+                Assignment.assigned_to
+            ).filter(
+                or_(
+                    Assignment.title.ilike(
+                        search_term
+                    ),
+                    User.name.ilike(
+                        search_term
+                    ),
+                    User.email.ilike(
+                        search_term
+                    ),
+                )
+            )
+
+    assignments = (
+        query
+        .order_by(
+            Assignment.created_at.desc()
+        )
         .all()
     )
 
     results = []
 
     for assignment in assignments:
-        doc_count = len(assignment.documents)
+        doc_count = len(
+            assignment.documents
+        )
 
         signed_count = sum(
             1
@@ -143,8 +200,12 @@ def list_admin_assignments(
                 title=assignment.title,
                 status=assignment.status,
                 created_at=assignment.created_at,
-                assigned_to_name=assignment.assigned_to.name,
-                assigned_to_email=assignment.assigned_to.email,
+                assigned_to_name=(
+                    assignment.assigned_to.name
+                ),
+                assigned_to_email=(
+                    assignment.assigned_to.email
+                ),
                 document_count=doc_count,
                 signed_count=signed_count,
             )
@@ -158,17 +219,39 @@ def list_admin_assignments(
     response_model=list[AdminUserResponse],
 )
 def list_all_users(
+    search: str | None = Query(None),
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
     """
     Return all users for the admin user-management screen.
 
-    Only admins can access this endpoint.
-    Password information is never returned.
+    Search supports:
+    - User name
+    - User email
     """
+
+    query = db.query(User)
+
+    if search:
+        search = search.strip()
+
+        if len(search) >= 2:
+            search_term = f"%{search}%"
+
+            query = query.filter(
+                or_(
+                    User.name.ilike(
+                        search_term
+                    ),
+                    User.email.ilike(
+                        search_term
+                    ),
+                )
+            )
+
     return (
-        db.query(User)
+        query
         .order_by(User.name.asc())
         .all()
     )
@@ -187,18 +270,20 @@ def update_user_role(
     """
     Change another user's role.
 
-    Only admins can access this endpoint.
-    Admins cannot change their own role through this endpoint.
+    Admins cannot change their own role.
     """
 
-    # Prevent an admin accidentally removing their own admin privileges.
     if user_id == admin.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="You cannot change your own role.",
         )
 
-    user = db.query(User).filter(User.id == user_id).first()
+    user = (
+        db.query(User)
+        .filter(User.id == user_id)
+        .first()
+    )
 
     if not user:
         raise HTTPException(
@@ -206,10 +291,16 @@ def update_user_role(
             detail="User not found.",
         )
 
-    if payload.role not in {"admin", "assignee"}:
+    if payload.role not in {
+        "admin",
+        "assignee",
+    }:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Role must be either 'admin' or 'assignee'.",
+            detail=(
+                "Role must be either "
+                "'admin' or 'assignee'."
+            ),
         )
 
     user.role = payload.role
@@ -225,17 +316,48 @@ def update_user_role(
     response_model=list[UserSummary],
 )
 def list_assignable_users(
+    search: str | None = Query(None),
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
     """
     Users for the assignee picker on the upload screen.
-    Returns only regular signers.
+
+    Only regular signers are returned.
+
+    Search supports:
+    - User name
+    - User email
     """
-    return (
+
+    query = (
         db.query(User)
-        .filter(User.role == "assignee")
-        .order_by(User.name)
+        .filter(
+            User.role == "assignee"
+        )
+    )
+
+    if search:
+        search = search.strip()
+
+        if len(search) >= 2:
+            search_term = f"%{search}%"
+
+            query = query.filter(
+                or_(
+                    User.name.ilike(
+                        search_term
+                    ),
+                    User.email.ilike(
+                        search_term
+                    ),
+                )
+            )
+
+    return (
+        query
+        .order_by(User.name.asc())
+        .limit(50)
         .all()
     )
 
@@ -262,7 +384,10 @@ async def upload_documents(
     if len(title) > 120:
         raise HTTPException(
             status_code=400,
-            detail="Upload title must be 120 characters or fewer.",
+            detail=(
+                "Upload title must be "
+                "120 characters or fewer."
+            ),
         )
 
     if not files:
@@ -273,7 +398,9 @@ async def upload_documents(
 
     assignee = (
         db.query(User)
-        .filter(User.id == assigned_to_id)
+        .filter(
+            User.id == assigned_to_id
+        )
         .first()
     )
 
@@ -286,7 +413,10 @@ async def upload_documents(
     if assignee.role != "assignee":
         raise HTTPException(
             status_code=400,
-            detail="Documents can only be assigned to regular signers.",
+            detail=(
+                "Documents can only be assigned "
+                "to regular signers."
+            ),
         )
 
     assignment = Assignment(
@@ -302,6 +432,7 @@ async def upload_documents(
     created_documents: list[Document] = []
 
     for upload in files:
+
         if upload.content_type != "application/pdf":
             raise HTTPException(
                 status_code=400,
@@ -337,7 +468,10 @@ async def upload_documents(
         send_documents_assigned_email(
             assignee.email,
             assignee.name,
-            [doc.filename for doc in created_documents],
+            [
+                doc.filename
+                for doc in created_documents
+            ],
             f"{settings.frontend_url}/dashboard",
         )
     except Exception as e:

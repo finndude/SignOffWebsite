@@ -1,10 +1,15 @@
-import React, { useEffect, useState } from "react";
+import React, {
+  useEffect,
+  useState,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   ShieldCheck,
   User,
   Users,
+  Search,
+  X,
 } from "lucide-react";
 import { apiFetch } from "../utils/api";
 import "./manageusers.css";
@@ -12,35 +17,41 @@ import "./manageusers.css";
 function ManageUsers() {
   const navigate = useNavigate();
 
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] =
+    useState([]);
+
   const [currentUserId, setCurrentUserId] =
     useState(null);
 
   const [isLoading, setIsLoading] =
     useState(true);
-  const [error, setError] = useState("");
+
+  const [error, setError] =
+    useState("");
+
   const [savingUserId, setSavingUserId] =
     useState(null);
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
+  const [search, setSearch] =
+    useState("");
 
-  const loadUsers = async () => {
+  const loadUsers = async (
+    searchValue = ""
+  ) => {
     setIsLoading(true);
     setError("");
 
     try {
-      const meResponse = await apiFetch(
-        "/auth/me"
-      );
+      const meResponse =
+        await apiFetch("/auth/me");
 
       if (!meResponse.ok) {
         navigate("/");
         return;
       }
 
-      const me = await meResponse.json();
+      const me =
+        await meResponse.json();
 
       if (me.role !== "admin") {
         navigate("/dashboard");
@@ -49,9 +60,30 @@ function ManageUsers() {
 
       setCurrentUserId(me.id);
 
-      const usersResponse = await apiFetch(
-        "/admin/users"
-      );
+      const params =
+        new URLSearchParams();
+
+      const trimmedSearch =
+        searchValue.trim();
+
+      if (
+        trimmedSearch.length >= 2
+      ) {
+        params.set(
+          "search",
+          trimmedSearch
+        );
+      }
+
+      const queryString =
+        params.toString();
+
+      const usersResponse =
+        await apiFetch(
+          queryString
+            ? `/admin/users?${queryString}`
+            : "/admin/users"
+        );
 
       if (!usersResponse.ok) {
         const data =
@@ -65,10 +97,13 @@ function ManageUsers() {
         );
       }
 
-      const data = await usersResponse.json();
+      const data =
+        await usersResponse.json();
 
       setUsers(
-        Array.isArray(data) ? data : []
+        Array.isArray(data)
+          ? data
+          : []
       );
     } catch (err) {
       setError(
@@ -80,11 +115,25 @@ function ManageUsers() {
     }
   };
 
+  useEffect(() => {
+    const timeout =
+      setTimeout(() => {
+        loadUsers(search);
+      }, 300);
+
+    return () =>
+      clearTimeout(timeout);
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+
   const handleRoleChange = async (
     user,
     newRole
   ) => {
-    if (user.id === currentUserId) {
+    if (
+      user.id === currentUserId
+    ) {
       return;
     }
 
@@ -96,19 +145,21 @@ function ManageUsers() {
     setError("");
 
     try {
-      const response = await apiFetch(
-        `/admin/users/${user.id}/role`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({
-            role: newRole,
-          }),
-        }
-      );
+      const response =
+        await apiFetch(
+          `/admin/users/${user.id}/role`,
+          {
+            method: "PATCH",
+            body: JSON.stringify({
+              role: newRole,
+            }),
+          }
+        );
 
-      const data = await response
-        .json()
-        .catch(() => ({}));
+      const data =
+        await response
+          .json()
+          .catch(() => ({}));
 
       if (!response.ok) {
         throw new Error(
@@ -117,15 +168,18 @@ function ManageUsers() {
         );
       }
 
-      setUsers((currentUsers) =>
-        currentUsers.map((currentUser) =>
-          currentUser.id === user.id
-            ? {
-                ...currentUser,
-                role: data.role,
-              }
-            : currentUser
-        )
+      setUsers(
+        (currentUsers) =>
+          currentUsers.map(
+            (currentUser) =>
+              currentUser.id ===
+              user.id
+                ? {
+                    ...currentUser,
+                    role: data.role,
+                  }
+                : currentUser
+          )
       );
     } catch (err) {
       setError(
@@ -137,18 +191,23 @@ function ManageUsers() {
     }
   };
 
-  const formatDate = (dateString) => {
+  const formatDate = (
+    dateString
+  ) => {
     if (!dateString) {
       return "—";
     }
 
     return new Date(
       dateString
-    ).toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
+    ).toLocaleDateString(
+      undefined,
+      {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      }
+    );
   };
 
   return (
@@ -184,6 +243,39 @@ function ManageUsers() {
           </div>
         </div>
 
+        <div className="manage-users-search">
+          <Search
+            size={18}
+            strokeWidth={1.8}
+            className="manage-users-search-icon"
+          />
+
+          <input
+            type="text"
+            value={search}
+            onChange={(e) =>
+              setSearch(
+                e.target.value
+              )
+            }
+            placeholder="Search users by name or email..."
+            aria-label="Search users"
+          />
+
+          {search && (
+            <button
+              type="button"
+              className="manage-users-search-clear"
+              onClick={() =>
+                setSearch("")
+              }
+              aria-label="Clear search"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
+
         {error && (
           <div className="manage-users-error">
             {error}
@@ -194,22 +286,31 @@ function ManageUsers() {
           <div className="manage-users-empty">
             Loading users…
           </div>
-        ) : users.length === 0 ? (
+        ) : users.length ===
+          0 ? (
           <div className="manage-users-empty">
             <Users
               size={28}
               strokeWidth={1.7}
             />
-            <span>No users found.</span>
+
+            <span>
+              {search.trim()
+                .length >= 2
+                ? "No users matched your search."
+                : "No users found."}
+            </span>
           </div>
         ) : (
           <div className="manage-users-list">
             {users.map((user) => {
               const isCurrentUser =
-                user.id === currentUserId;
+                user.id ===
+                currentUserId;
 
               const isSaving =
-                savingUserId === user.id;
+                savingUserId ===
+                user.id;
 
               return (
                 <div
@@ -217,7 +318,8 @@ function ManageUsers() {
                   className="manage-users-row"
                 >
                   <div className="manage-users-avatar">
-                    {user.role === "admin" ? (
+                    {user.role ===
+                    "admin" ? (
                       <ShieldCheck
                         size={21}
                         strokeWidth={1.8}
@@ -270,15 +372,20 @@ function ManageUsers() {
                     <select
                       id={`role-${user.id}`}
                       className="manage-users-role-select"
-                      value={user.role}
+                      value={
+                        user.role
+                      }
                       disabled={
                         isCurrentUser ||
                         isSaving
                       }
-                      onChange={(event) =>
+                      onChange={(
+                        event
+                      ) =>
                         handleRoleChange(
                           user,
-                          event.target.value
+                          event.target
+                            .value
                         )
                       }
                     >
@@ -293,7 +400,8 @@ function ManageUsers() {
 
                     {isCurrentUser && (
                       <span className="manage-users-role-help">
-                        Your own role cannot be changed.
+                        Your own role cannot
+                        be changed.
                       </span>
                     )}
 

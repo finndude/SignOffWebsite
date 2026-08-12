@@ -5,12 +5,15 @@ import {
   FileStack,
   CheckCircle2,
   Clock,
+  Search,
+  X,
 } from "lucide-react";
 import { apiFetch } from "../utils/api";
 import "./documents.css";
 
 function Documents() {
   const navigate = useNavigate();
+
   const [assignments, setAssignments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -18,49 +21,78 @@ function Documents() {
   const [sort, setSort] = useState("newest");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [search, setSearch] = useState("");
 
-  const loadAssignments = () => {
+  const loadAssignments = async () => {
     setIsLoading(true);
     setError("");
 
-    const params = new URLSearchParams({ sort });
-
-    if (dateFrom) params.set("date_from", dateFrom);
-    if (dateTo) params.set("date_to", dateTo);
-
-    apiFetch(`/assignments?${params.toString()}`)
-      .then(async (res) => {
-        if (!res.ok) {
-          throw new Error("Failed to load documents.");
-        }
-
-        return res.json();
-      })
-      .then((data) => {
-        setAssignments(Array.isArray(data) ? data : []);
-      })
-      .catch(() => {
-        setError(
-          "Couldn't load your documents. Please try again."
-        );
-      })
-      .finally(() => {
-        setIsLoading(false);
+    try {
+      const params = new URLSearchParams({
+        sort,
       });
+
+      const trimmedSearch = search.trim();
+
+      if (trimmedSearch.length >= 2) {
+        params.set("search", trimmedSearch);
+      }
+
+      if (dateFrom) {
+        params.set("date_from", dateFrom);
+      }
+
+      if (dateTo) {
+        params.set("date_to", dateTo);
+      }
+
+      const response = await apiFetch(
+        `/assignments?${params.toString()}`
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          "Failed to load documents."
+        );
+      }
+
+      const data = await response.json();
+
+      setAssignments(
+        Array.isArray(data) ? data : []
+      );
+    } catch {
+      setError(
+        "Couldn't load your documents. Please try again."
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
-    loadAssignments();
+    const timeout = setTimeout(() => {
+      loadAssignments();
+    }, 300);
+
+    return () => clearTimeout(timeout);
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sort, dateFrom, dateTo]);
+  }, [sort, dateFrom, dateTo, search]);
 
   const formatDate = (isoString) =>
-    new Date(isoString).toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
+    new Date(isoString).toLocaleDateString(
+      undefined,
+      {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      }
+    );
+
+  const clearSearch = () => {
+    setSearch("");
+  };
 
   return (
     <div className="documents-page app-background">
@@ -69,7 +101,9 @@ function Documents() {
           <button
             type="button"
             className="documents-back"
-            onClick={() => navigate("/dashboard")}
+            onClick={() =>
+              navigate("/dashboard")
+            }
             aria-label="Back to dashboard"
           >
             <ArrowLeft
@@ -84,6 +118,35 @@ function Documents() {
         </div>
 
         <div className="documents-filters">
+          <div className="documents-search">
+            <Search
+              size={17}
+              strokeWidth={1.8}
+              className="documents-search-icon"
+            />
+
+            <input
+              type="text"
+              value={search}
+              onChange={(e) =>
+                setSearch(e.target.value)
+              }
+              placeholder="Search documents or assigned by..."
+              aria-label="Search documents"
+            />
+
+            {search && (
+              <button
+                type="button"
+                className="documents-search-clear"
+                onClick={clearSearch}
+                aria-label="Clear search"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+
           <select
             className="documents-filter-select"
             value={sort}
@@ -182,77 +245,91 @@ function Documents() {
           </p>
         ) : assignments.length === 0 ? (
           <p className="documents-empty">
-            No documents assigned to you yet.
+            {search.trim().length >= 2
+              ? "No documents matched your search."
+              : "No documents assigned to you yet."}
           </p>
         ) : (
           <div className="documents-list">
-            {assignments.map((assignment) => (
-              <button
-                key={assignment.id}
-                type="button"
-                className="documents-row"
-                onClick={() =>
-                  navigate(
-                    `/documents/${assignment.id}`
-                  )
-                }
-              >
-                <div className="documents-row-icon">
-                  <FileStack
-                    size={20}
-                    strokeWidth={1.8}
-                  />
-                </div>
-
-                <div className="documents-row-info">
-                  <span className="documents-row-title">
-                    {assignment.title ||
-                      `${assignment.document_count} document${
-                        assignment.document_count !== 1
-                          ? "s"
-                          : ""
-                      }`}
-                  </span>
-
-                  <span className="documents-row-meta">
-                    Assigned by{" "}
-                    {assignment.assigned_by_name} ·{" "}
-                    {formatDate(
-                      assignment.created_at
-                    )}
-                  </span>
-                </div>
-
-                <div
-                  className={`documents-row-status ${
-                    assignment.status === "signed"
-                      ? "signed"
-                      : "pending"
-                  }`}
+            {assignments.map(
+              (assignment) => (
+                <button
+                  key={assignment.id}
+                  type="button"
+                  className="documents-row"
+                  onClick={() =>
+                    navigate(
+                      `/documents/${assignment.id}`
+                    )
+                  }
                 >
-                  {assignment.status ===
-                  "signed" ? (
-                    <>
-                      <CheckCircle2
-                        size={14}
-                        strokeWidth={2}
-                      />
-                      Signed
-                    </>
-                  ) : (
-                    <>
-                      <Clock
-                        size={14}
-                        strokeWidth={2}
-                      />
-                      {assignment.signed_count}/
-                      {assignment.document_count}{" "}
-                      signed
-                    </>
-                  )}
-                </div>
-              </button>
-            ))}
+                  <div className="documents-row-icon">
+                    <FileStack
+                      size={20}
+                      strokeWidth={1.8}
+                    />
+                  </div>
+
+                  <div className="documents-row-info">
+                    <span className="documents-row-title">
+                      {assignment.title ||
+                        `${assignment.document_count} document${
+                          assignment.document_count !==
+                          1
+                            ? "s"
+                            : ""
+                        }`}
+                    </span>
+
+                    <span className="documents-row-meta">
+                      Assigned by{" "}
+                      {
+                        assignment.assigned_by_name
+                      }{" "}
+                      ·{" "}
+                      {formatDate(
+                        assignment.created_at
+                      )}
+                    </span>
+                  </div>
+
+                  <div
+                    className={`documents-row-status ${
+                      assignment.status ===
+                      "signed"
+                        ? "signed"
+                        : "pending"
+                    }`}
+                  >
+                    {assignment.status ===
+                    "signed" ? (
+                      <>
+                        <CheckCircle2
+                          size={14}
+                          strokeWidth={2}
+                        />
+                        Signed
+                      </>
+                    ) : (
+                      <>
+                        <Clock
+                          size={14}
+                          strokeWidth={2}
+                        />
+                        {
+                          assignment.signed_count
+                        }
+                        /
+                        {
+                          assignment.document_count
+                        }{" "}
+                        signed
+                      </>
+                    )}
+                  </div>
+                </button>
+              )
+            )}
           </div>
         )}
       </div>
