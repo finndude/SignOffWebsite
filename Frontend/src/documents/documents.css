@@ -74,17 +74,43 @@
   font-weight: 600;
 }
 
+.documents-date-input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
 .documents-date-filter input {
   height: 40px;
+  width: 100%;
+  box-sizing: border-box;
   border: 1px solid #e2e6ee;
   border-radius: 8px;
   padding: 0 10px;
   font-size: 13.5px;
   color: #14213d;
   background: #ffffff;
+}
 
-  /* Force the native iOS date control to use light styling */
+.documents-date-placeholder {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #8a93a6;
+  font-size: 13.5px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Keep the native iOS date picker light */
+.documents-date-filter input {
   color-scheme: light;
+}
+
+.documents-date-filter input:focus {
+  outline: none;
+  border-color: #2f5ef5;
+  box-shadow: 0 0 0 2px rgba(47, 94, 245, 0.08);
 }
 
 .documents-clear-filters {
