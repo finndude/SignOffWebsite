@@ -13,10 +13,6 @@
   max-width: 780px;
 }
 
-/* =========================================================
-   HEADER
-   ========================================================= */
-
 .adminassignments-header {
   display: flex;
   align-items: center;
@@ -54,37 +50,44 @@
   margin: 2px 0 0;
 }
 
-/* =========================================================
-   SEARCH
-   ========================================================= */
+.adminassignments-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e6ee;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
 
 .adminassignments-search {
   position: relative;
   width: 100%;
-  margin-bottom: 12px;
   display: flex;
   align-items: center;
 }
 
 .adminassignments-search-icon {
   position: absolute;
-  left: 14px;
+  left: 13px;
   color: #8a93a6;
   pointer-events: none;
 }
 
 .adminassignments-search input {
   width: 100%;
-  height: 44px;
+  height: 42px;
   box-sizing: border-box;
   border: 1px solid #e2e6ee;
-  border-radius: 10px;
-  padding: 0 42px 0 42px;
-  background: #ffffff;
-  color: #14213d;
+  border-radius: 9px;
+  padding: 0 40px 0 40px;
   font-size: 14px;
-  font-family: inherit;
+  color: #14213d;
+  background: #ffffff;
   outline: none;
+  font-family: inherit;
 }
 
 .adminassignments-search input::placeholder {
@@ -118,127 +121,79 @@
   background: #f1f3f7;
 }
 
-/* =========================================================
-   FILTER BAR
-   ========================================================= */
-
-.adminassignments-filter-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.adminassignments-filter-toggle {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  height: 38px;
-  padding: 0 12px;
+.adminassignments-filter-select {
+  height: 40px;
   border: 1px solid #e2e6ee;
-  border-radius: 9px;
-  background: #ffffff;
-  color: #5f6b7d;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.adminassignments-filter-toggle:hover {
-  border-color: #2f5ef5;
-  color: #2f5ef5;
-  background: #f8faff;
-}
-
-.adminassignments-filter-toggle.active {
-  border-color: #2f5ef5;
-  color: #2f5ef5;
-  background: #f8faff;
-}
-
-.adminassignments-filter-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #2f5ef5;
-  display: block;
-}
-
-.adminassignments-reset {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 38px;
-  padding: 0 11px;
-  border: none;
-  background: transparent;
-  color: #6b7688;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
   border-radius: 8px;
-}
-
-.adminassignments-reset:hover {
-  background: #f1f3f7;
+  padding: 0 12px;
+  font-size: 13.5px;
   color: #14213d;
+  background: #fff;
 }
 
-/* =========================================================
-   FILTER PANEL
-   ========================================================= */
-
-.adminassignments-filters {
-  display: grid;
-  grid-template-columns: 1.4fr 1fr 1fr;
-  gap: 12px;
-  padding: 14px;
-  margin-bottom: 18px;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid #e2e6ee;
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(31, 45, 90, 0.07);
-}
-
-.adminassignments-filter-field {
+.adminassignments-date-filter {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
-.adminassignments-filter-field label {
+.adminassignments-date-filter label {
   font-size: 12px;
-  font-weight: 700;
-  color: #5f6b7d;
+  color: #6b7688;
+  font-weight: 600;
 }
 
-.adminassignments-filter-field select,
-.adminassignments-filter-field input {
+.adminassignments-date-input-wrapper {
+  position: relative;
   width: 100%;
-  height: 40px;
-  box-sizing: border-box;
-  padding: 0 10px;
-  border: 1px solid #dfe4ec;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #14213d;
-  font-family: inherit;
-  font-size: 13px;
-  outline: none;
 }
 
-.adminassignments-filter-field select:focus,
-.adminassignments-filter-field input:focus {
+.adminassignments-date-filter input {
+  height: 40px;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #e2e6ee;
+  border-radius: 8px;
+  padding: 0 10px;
+  font-size: 13.5px;
+  color: #14213d;
+  background: #ffffff;
+}
+
+.adminassignments-date-filter input.adminassignments-date-input-empty {
+  color: transparent;
+}
+
+.adminassignments-date-filter input {
+  color-scheme: light;
+}
+
+.adminassignments-date-filter input:focus {
+  outline: none;
   border-color: #2f5ef5;
   box-shadow: 0 0 0 2px rgba(47, 94, 245, 0.08);
 }
 
-/* =========================================================
-   STATES
-   ========================================================= */
+.adminassignments-date-placeholder {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #8a93a6;
+  font-size: 13.5px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.adminassignments-clear-filters {
+  height: 40px;
+  background: none;
+  border: none;
+  color: #2f5ef5;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
 
 .adminassignments-empty {
   text-align: center;
@@ -256,10 +211,6 @@
   margin-bottom: 16px;
   text-align: center;
 }
-
-/* =========================================================
-   ASSIGNMENT LIST
-   ========================================================= */
 
 .adminassignments-list {
   display: flex;
@@ -347,17 +298,22 @@
   color: #a6660b;
 }
 
-/* =========================================================
-   MOBILE
-   ========================================================= */
-
-@media (max-width: 680px) {
+@media (max-width: 600px) {
   .adminassignments-page {
     padding: 18px;
   }
 
   .adminassignments-filters {
-    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .adminassignments-filter-select {
+    width: 100%;
+  }
+
+  .adminassignments-date-filter {
+    flex: 1;
+    min-width: 120px;
   }
 
   .adminassignments-row {

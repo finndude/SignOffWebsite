@@ -150,15 +150,12 @@ def list_admin_assignments(
     """
     Every assignment uploaded by this admin.
 
-    Search supports:
-    - Assignment title
-    - Assignee name
-    - Assignee email
-
-    Optional filters:
-    - sort: newest / oldest
-    - date_from
-    - date_to
+    Supports:
+    - Assignment title search
+    - Assignee name search
+    - Assignee email search
+    - Newest/oldest sorting
+    - Date range filtering
     """
 
     query = (
@@ -167,10 +164,6 @@ def list_admin_assignments(
             Assignment.assigned_by_id == admin.id
         )
     )
-
-    # -----------------------------------------------------
-    # Search
-    # -----------------------------------------------------
 
     if search:
         search = search.strip()
@@ -194,10 +187,6 @@ def list_admin_assignments(
                 )
             )
 
-    # -----------------------------------------------------
-    # Date range
-    # -----------------------------------------------------
-
     if date_from:
         query = query.filter(
             Assignment.created_at
@@ -216,18 +205,11 @@ def list_admin_assignments(
             )
         )
 
-    # -----------------------------------------------------
-    # Sorting
-    # -----------------------------------------------------
-
-    if sort == "oldest":
-        query = query.order_by(
-            Assignment.created_at.asc()
-        )
-    else:
-        query = query.order_by(
-            Assignment.created_at.desc()
-        )
+    query = query.order_by(
+        Assignment.created_at.desc()
+        if sort == "newest"
+        else Assignment.created_at.asc()
+    )
 
     assignments = query.all()
 
