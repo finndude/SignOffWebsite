@@ -46,12 +46,11 @@ def list_my_assignments(
         "newest",
         pattern="^(newest|oldest)$",
     ),
-    status_filter: str = Query(
-        "all",
+    status_filter: str | None = Query(
+        None,
         alias="status",
-        pattern="^(all|pending|signed)$",
+        pattern="^(pending|signed)$",
     ),
-    search: str | None = Query(None),
     date_from: date | None = None,
     date_to: date | None = None,
     db: Session = Depends(get_db),
@@ -63,59 +62,20 @@ def list_my_assignments(
     Supports:
     - Newest / oldest sorting
     - Pending / signed status filtering
-    - Search by assignment title
-    - Search by assigned-by name
-    - Search by assigned-by email
     - Date range filtering
     """
 
-    query = (
-        db.query(Assignment)
-        .filter(
-            Assignment.assigned_to_id == current_user.id
-        )
+    query = db.query(Assignment).filter(
+        Assignment.assigned_to_id == current_user.id
     )
-
-    # ---------------------------------------------------------
-    # Search
-    # ---------------------------------------------------------
-
-    if search:
-        search = search.strip()
-
-        if len(search) >= 2:
-            search_term = f"%{search}%"
-
-            query = (
-                query
-                .join(
-                    Assignment.assigned_by
-                )
-                .filter(
-                    Assignment.title.ilike(
-                        search_term
-                    )
-                    | User.name.ilike(
-                        search_term
-                    )
-                    | User.email.ilike(
-                        search_term
-                    )
-                )
-            )
 
     # ---------------------------------------------------------
     # Status filter
     # ---------------------------------------------------------
 
-    if status_filter == "signed":
+    if status_filter:
         query = query.filter(
-            Assignment.status == "signed"
-        )
-
-    elif status_filter == "pending":
-        query = query.filter(
-            Assignment.status != "signed"
+            Assignment.status == status_filter
         )
 
     # ---------------------------------------------------------
@@ -171,9 +131,7 @@ def list_my_assignments(
                 title=assignment.title,
                 status=assignment.status,
                 created_at=assignment.created_at,
-                assigned_by_name=(
-                    assignment.assigned_by.name
-                ),
+                assigned_by_name=assignment.assigned_by.name,
                 document_count=doc_count,
                 signed_count=signed_count,
             )
@@ -206,10 +164,7 @@ def _get_owned_assignment(
             detail="Assignment not found.",
         )
 
-    if (
-        assignment.assigned_to_id
-        != current_user.id
-    ):
+    if assignment.assigned_to_id != current_user.id:
         raise HTTPException(
             status_code=403,
             detail="This assignment isn't yours.",
@@ -243,10 +198,8 @@ def _get_viewable_assignment(
         )
 
     if (
-        assignment.assigned_to_id
-        != current_user.id
-        and assignment.assigned_by_id
-        != current_user.id
+        assignment.assigned_to_id != current_user.id
+        and assignment.assigned_by_id != current_user.id
     ):
         raise HTTPException(
             status_code=403,
@@ -355,6 +308,7 @@ def view_document_file(
         stored_file = get_file_from_storage(
             document.storage_key
         )
+
     except Exception:
         raise HTTPException(
             status_code=502,
@@ -421,12 +375,11 @@ def sign_document(
         )
 
     # ---------------------------------------------------------
-    # Decode signature image
+    # Decode the signature image
     # ---------------------------------------------------------
 
     raw_data = (
-        payload.signature_data_url
-        .split(",")[-1]
+        payload.signature_data_url.split(",")[-1]
     )
 
     try:
@@ -444,12 +397,14 @@ def sign_document(
             detail="Signature data is invalid.",
         )
 
+    # Store the original signature image.
+
     signature_key = upload_signature_to_storage(
         image_bytes
     )
 
     # ---------------------------------------------------------
-    # Download original PDF
+    # Download the original PDF
     # ---------------------------------------------------------
 
     try:
@@ -473,9 +428,7 @@ def sign_document(
 
     try:
         reader = PdfReader(
-            io.BytesIO(
-                original_pdf_bytes
-            )
+            io.BytesIO(original_pdf_bytes)
         )
 
         writer = PdfWriter()
@@ -495,9 +448,7 @@ def sign_document(
 
     for signature in payload.signatures:
 
-        page_number = (
-            signature.page_number
-        )
+        page_number = signature.page_number
 
         if (
             page_number < 0
@@ -511,9 +462,11 @@ def sign_document(
                 ),
             )
 
-        page = writer.pages[
-            page_number
-        ]
+        page = writer.pages[page_number]
+
+        # -----------------------------------------------------
+        # Get the REAL PDF page dimensions
+        # -----------------------------------------------------
 
         pdf_page_width = float(
             page.mediabox.width
@@ -523,6 +476,10 @@ def sign_document(
             page.mediabox.height
         )
 
+        # -----------------------------------------------------
+        # Validate frontend page dimensions
+        # -----------------------------------------------------
+
         if (
             signature.page_width <= 0
             or signature.page_height <= 0
@@ -531,6 +488,16 @@ def sign_document(
                 status_code=400,
                 detail="Invalid rendered page dimensions.",
             )
+
+        # -----------------------------------------------------
+        # Convert frontend coordinates to PDF coordinates
+        #
+        # Frontend:
+        #   origin = top-left
+        #
+        # PDF:
+        #   origin = bottom-left
+        # -----------------------------------------------------
 
         scale_x = (
             pdf_page_width
@@ -557,18 +524,20 @@ def sign_document(
         pdf_y = (
             pdf_page_height
             - (
-                signature.y
-                * scale_y
+                signature.y * scale_y
             )
             - pdf_height
         )
+
+        # -----------------------------------------------------
+        # Safety: keep signature inside PDF page
+        # -----------------------------------------------------
 
         pdf_x = max(
             0,
             min(
                 pdf_x,
-                pdf_page_width
-                - pdf_width,
+                pdf_page_width - pdf_width,
             ),
         )
 
@@ -576,10 +545,13 @@ def sign_document(
             0,
             min(
                 pdf_y,
-                pdf_page_height
-                - pdf_height,
+                pdf_page_height - pdf_height,
             ),
         )
+
+        # -----------------------------------------------------
+        # Create transparent PDF overlay
+        # -----------------------------------------------------
 
         overlay_buffer = io.BytesIO()
 
@@ -613,6 +585,10 @@ def sign_document(
             overlay_buffer
         )
 
+        # -----------------------------------------------------
+        # Merge signature onto correct page
+        # -----------------------------------------------------
+
         page.merge_page(
             signature_pdf.pages[0]
         )
@@ -632,7 +608,7 @@ def sign_document(
     )
 
     # ---------------------------------------------------------
-    # Overwrite original PDF
+    # OVERWRITE ORIGINAL PDF
     # ---------------------------------------------------------
 
     try:
@@ -657,10 +633,7 @@ def sign_document(
     )
 
     document.is_signed = True
-
-    document.signed_at = (
-        datetime.utcnow()
-    )
+    document.signed_at = datetime.utcnow()
 
     db.commit()
     db.refresh(document)

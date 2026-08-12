@@ -26,8 +26,8 @@ function Documents() {
   const [sort, setSort] =
     useState("newest");
 
-  const [statusFilter, setStatusFilter] =
-    useState("all");
+  const [status, setStatus] =
+    useState("");
 
   const [dateFrom, setDateFrom] =
     useState("");
@@ -46,16 +46,24 @@ function Documents() {
       const params =
         new URLSearchParams({
           sort,
-          status: statusFilter,
         });
 
       const trimmedSearch =
         search.trim();
 
-      if (trimmedSearch.length >= 2) {
+      if (
+        trimmedSearch.length >= 2
+      ) {
         params.set(
           "search",
           trimmedSearch
+        );
+      }
+
+      if (status) {
+        params.set(
+          "status",
+          status
         );
       }
 
@@ -92,10 +100,12 @@ function Documents() {
           ? data
           : []
       );
+
     } catch {
       setError(
         "Couldn't load your documents. Please try again."
       );
+
     } finally {
       setIsLoading(false);
     }
@@ -113,7 +123,7 @@ function Documents() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     sort,
-    statusFilter,
+    status,
     dateFrom,
     dateTo,
     search,
@@ -142,6 +152,14 @@ function Documents() {
     setDateTo("");
   };
 
+  const clearFilters = () => {
+    setSort("newest");
+    setStatus("");
+    setDateFrom("");
+    setDateTo("");
+    setSearch("");
+  };
+
   return (
     <div className="documents-page app-background">
       <div className="documents-container">
@@ -168,6 +186,8 @@ function Documents() {
 
         <div className="documents-filters">
 
+          {/* Search */}
+
           <div className="documents-search">
             <Search
               size={17}
@@ -191,13 +211,17 @@ function Documents() {
               <button
                 type="button"
                 className="documents-search-clear"
-                onClick={clearSearch}
+                onClick={
+                  clearSearch
+                }
                 aria-label="Clear search"
               >
                 <X size={16} />
               </button>
             )}
           </div>
+
+          {/* Sort */}
 
           <select
             className="documents-filter-select"
@@ -218,17 +242,19 @@ function Documents() {
             </option>
           </select>
 
+          {/* Status */}
+
           <select
             className="documents-filter-select"
-            value={statusFilter}
+            value={status}
             onChange={(e) =>
-              setStatusFilter(
+              setStatus(
                 e.target.value
               )
             }
-            aria-label="Filter documents by status"
+            aria-label="Filter by status"
           >
-            <option value="all">
+            <option value="">
               All statuses
             </option>
 
@@ -241,12 +267,15 @@ function Documents() {
             </option>
           </select>
 
+          {/* From date */}
+
           <div className="documents-date-filter">
             <label htmlFor="dateFrom">
               From
             </label>
 
             <div className="documents-date-input-wrapper">
+
               {!dateFrom && (
                 <span className="documents-date-placeholder">
                   Select a date
@@ -268,8 +297,11 @@ function Documents() {
                   )
                 }
               />
+
             </div>
           </div>
+
+          {/* To date */}
 
           <div className="documents-date-filter">
             <label htmlFor="dateTo">
@@ -277,6 +309,7 @@ function Documents() {
             </label>
 
             <div className="documents-date-input-wrapper">
+
               {!dateTo && (
                 <span className="documents-date-placeholder">
                   Select a date
@@ -298,16 +331,39 @@ function Documents() {
                   )
                 }
               />
+
             </div>
           </div>
 
-          {(dateFrom || dateTo) && (
+          {/* Clear dates */}
+
+          {(dateFrom ||
+            dateTo) && (
             <button
               type="button"
               className="documents-clear-filters"
-              onClick={clearDates}
+              onClick={
+                clearDates
+              }
             >
               Clear dates
+            </button>
+          )}
+
+          {/* Clear all filters */}
+
+          {(status ||
+            dateFrom ||
+            dateTo ||
+            search) && (
+            <button
+              type="button"
+              className="documents-clear-filters"
+              onClick={
+                clearFilters
+              }
+            >
+              Clear filters
             </button>
           )}
 
@@ -323,20 +379,30 @@ function Documents() {
           <p className="documents-empty">
             Loading…
           </p>
-        ) : assignments.length === 0 ? (
+
+        ) : assignments.length ===
+          0 ? (
+
           <p className="documents-empty">
-            {search.trim().length >= 2
+
+            {search.trim().length >=
+            2
               ? "No documents matched your search."
-              : statusFilter === "signed"
+              : status === "signed"
               ? "No signed documents found."
-              : statusFilter === "pending"
+              : status === "pending"
               ? "No pending documents found."
               : "No documents assigned to you yet."}
+
           </p>
+
         ) : (
+
           <div className="documents-list">
+
             {assignments.map(
               (assignment) => (
+
                 <button
                   key={assignment.id}
                   type="button"
@@ -347,6 +413,7 @@ function Documents() {
                     )
                   }
                 >
+
                   <div className="documents-row-icon">
                     <FileStack
                       size={20}
@@ -355,6 +422,7 @@ function Documents() {
                   </div>
 
                   <div className="documents-row-info">
+
                     <span className="documents-row-title">
                       {assignment.title ||
                         `${assignment.document_count} document${
@@ -375,6 +443,7 @@ function Documents() {
                         assignment.created_at
                       )}
                     </span>
+
                   </div>
 
                   <div
@@ -385,6 +454,7 @@ function Documents() {
                         : "pending"
                     }`}
                   >
+
                     {assignment.status ===
                     "signed" ? (
                       <>
@@ -400,20 +470,27 @@ function Documents() {
                           size={14}
                           strokeWidth={2}
                         />
+
                         {
                           assignment.signed_count
                         }
+
                         /
+
                         {
                           assignment.document_count
                         }{" "}
                         signed
                       </>
                     )}
+
                   </div>
+
                 </button>
+
               )
             )}
+
           </div>
         )}
 

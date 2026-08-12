@@ -86,7 +86,9 @@
 
 .documents-search input:focus {
   border-color: #2f5ef5;
-  box-shadow: 0 0 0 2px rgba(47, 94, 245, 0.08);
+  box-shadow:
+    0 0 0 2px
+    rgba(47, 94, 245, 0.08);
 }
 
 .documents-search-clear {
@@ -119,6 +121,16 @@
   font-size: 13.5px;
   color: #14213d;
   background: #fff;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.documents-filter-select:focus {
+  outline: none;
+  border-color: #2f5ef5;
+  box-shadow:
+    0 0 0 2px
+    rgba(47, 94, 245, 0.08);
 }
 
 .documents-date-filter {
@@ -148,6 +160,7 @@
   font-size: 13.5px;
   color: #14213d;
   background: #ffffff;
+  font-family: inherit;
 }
 
 .documents-date-filter input.documents-date-input-empty {
@@ -161,7 +174,9 @@
 .documents-date-filter input:focus {
   outline: none;
   border-color: #2f5ef5;
-  box-shadow: 0 0 0 2px rgba(47, 94, 245, 0.08);
+  box-shadow:
+    0 0 0 2px
+    rgba(47, 94, 245, 0.08);
 }
 
 .documents-date-placeholder {
@@ -183,6 +198,11 @@
   font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
+}
+
+.documents-clear-filters:hover {
+  color: #1e46d1;
 }
 
 .documents-empty {
@@ -285,6 +305,10 @@
 }
 
 @media (max-width: 600px) {
+  .documents-page {
+    padding: 18px;
+  }
+
   .documents-row-meta {
     display: none;
   }
@@ -300,5 +324,15 @@
   .documents-date-filter {
     flex: 1;
     min-width: 120px;
+  }
+
+  .documents-date-filter input {
+    width: 100%;
+  }
+
+  .documents-clear-filters {
+    width: 100%;
+    text-align: left;
+    padding: 0;
   }
 }
