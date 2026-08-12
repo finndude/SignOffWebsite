@@ -12,6 +12,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Trash2,
 } from "lucide-react";
 import { apiFetch } from "../utils/api";
 import "./manageusers.css";
@@ -34,6 +35,9 @@ function ManageUsers() {
     useState("");
 
   const [savingUserId, setSavingUserId] =
+    useState(null);
+
+  const [deletingUserId, setDeletingUserId] =
     useState(null);
 
   const [search, setSearch] =
@@ -131,12 +135,12 @@ function ManageUsers() {
           )
         ) || 0;
 
-      setUsers(
+      const usersData =
         Array.isArray(data)
           ? data
-          : []
-      );
+          : [];
 
+      setUsers(usersData);
       setTotalCount(total);
       setPage(requestedPage);
 
@@ -151,16 +155,10 @@ function ManageUsers() {
     }
   };
 
-  /*
-   * Reset to first page when searching.
-   */
   useEffect(() => {
     setPage(1);
   }, [search]);
 
-  /*
-   * Load whenever search or page changes.
-   */
   useEffect(() => {
     const timeout =
       setTimeout(() => {
@@ -242,6 +240,96 @@ function ManageUsers() {
 
     } finally {
       setSavingUserId(null);
+    }
+  };
+
+  const handleDeleteUser = async (
+    user
+  ) => {
+    if (
+      user.id === currentUserId
+    ) {
+      return;
+    }
+
+    const confirmed =
+      window.confirm(
+        `Are you sure you want to permanently delete ${user.name}?\n\n` +
+        `This will delete their account, all assignments involving them, ` +
+        `all documents and signatures associated with those assignments, ` +
+        `and the stored files.\n\n` +
+        `This action cannot be undone.`
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingUserId(user.id);
+    setError("");
+
+    try {
+      const response =
+        await apiFetch(
+          `/admin/users/${user.id}`,
+          {
+            method: "DELETE",
+          }
+        );
+
+      const data =
+        await response
+          .json()
+          .catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(
+          data.detail ||
+            "Failed to delete the user."
+        );
+      }
+
+      const newTotal =
+        Math.max(
+          0,
+          totalCount - 1
+        );
+
+      const newTotalPages =
+        Math.max(
+          1,
+          Math.ceil(
+            newTotal /
+              PAGE_SIZE
+          )
+        );
+
+      /*
+       * If deleting the last user on the current page
+       * means the page no longer exists, move backwards
+       * one page.
+       *
+       * Otherwise simply reload the current page.
+       */
+      const nextPage =
+        page > newTotalPages
+          ? newTotalPages
+          : page;
+
+      setDeletingUserId(null);
+
+      await loadUsers(
+        search,
+        nextPage
+      );
+
+    } catch (err) {
+      setDeletingUserId(null);
+
+      setError(
+        err.message ||
+          "Couldn't delete the user. Please try again."
+      );
     }
   };
 
@@ -451,6 +539,10 @@ function ManageUsers() {
                   savingUserId ===
                   user.id;
 
+                const isDeleting =
+                  deletingUserId ===
+                  user.id;
+
                 return (
                   <div
                     key={user.id}
@@ -526,7 +618,8 @@ function ManageUsers() {
                         }
                         disabled={
                           isCurrentUser ||
-                          isSaving
+                          isSaving ||
+                          isDeleting
                         }
                         onChange={(
                           event
@@ -564,6 +657,40 @@ function ManageUsers() {
 
                     </div>
 
+                    <div className="manage-users-delete">
+
+                      <button
+                        type="button"
+                        className="manage-users-delete-button"
+                        onClick={() =>
+                          handleDeleteUser(
+                            user
+                          )
+                        }
+                        disabled={
+                          isCurrentUser ||
+                          isSaving ||
+                          isDeleting
+                        }
+                        aria-label={`Delete ${user.name}`}
+                        title={
+                          isCurrentUser
+                            ? "You cannot delete your own account"
+                            : `Delete ${user.name}`
+                        }
+                      >
+                        {isDeleting ? (
+                          <span className="manage-users-delete-spinner" />
+                        ) : (
+                          <Trash2
+                            size={18}
+                            strokeWidth={1.8}
+                          />
+                        )}
+                      </button>
+
+                    </div>
+
                   </div>
                 );
               })}
@@ -583,7 +710,8 @@ function ManageUsers() {
                   }
                   disabled={
                     page === 1 ||
-                    isLoading
+                    isLoading ||
+                    deletingUserId !== null
                   }
                   aria-label="Previous page"
                 >
@@ -626,7 +754,8 @@ function ManageUsers() {
                             )
                           }
                           disabled={
-                            isLoading
+                            isLoading ||
+                            deletingUserId !== null
                           }
                           aria-label={`Page ${pageNumber}`}
                           aria-current={
@@ -656,7 +785,8 @@ function ManageUsers() {
                   disabled={
                     page ===
                       totalPages ||
-                    isLoading
+                    isLoading ||
+                    deletingUserId !== null
                   }
                   aria-label="Next page"
                 >

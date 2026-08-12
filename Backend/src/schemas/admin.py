@@ -47,8 +47,12 @@ class AdminUserListResponse(BaseModel):
     total_pages: int
 
 
+class DeleteUserResponse(BaseModel):
+    detail: str
+
+
 # ---------------------------------------------------------
-# Keep your existing request schemas below.
+# Existing request schemas
 # ---------------------------------------------------------
 
 

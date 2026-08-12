@@ -31,6 +31,7 @@ from src.schemas.admin import (
     UpdateUserRoleRequest,
     UpdateAssignmentAssigneeRequest,
     UpdateAssignmentTitleRequest,
+    DeleteUserResponse,
 )
 
 from src.schemas.documents import (
@@ -213,10 +214,6 @@ def list_admin_assignments(
         )
     )
 
-    # ---------------------------------------------------------
-    # Search
-    # ---------------------------------------------------------
-
     if search:
         search = search.strip()
 
@@ -241,19 +238,11 @@ def list_admin_assignments(
                 )
             )
 
-    # ---------------------------------------------------------
-    # Status
-    # ---------------------------------------------------------
-
     if status_filter:
         query = query.filter(
             Assignment.status
             == status_filter
         )
-
-    # ---------------------------------------------------------
-    # Dates
-    # ---------------------------------------------------------
 
     if date_from:
         query = query.filter(
@@ -273,10 +262,6 @@ def list_admin_assignments(
             )
         )
 
-    # ---------------------------------------------------------
-    # Total
-    # ---------------------------------------------------------
-
     total_count = query.count()
 
     response.headers[
@@ -291,10 +276,6 @@ def list_admin_assignments(
         "X-Page-Size"
     ] = str(page_size)
 
-    # ---------------------------------------------------------
-    # Sorting
-    # ---------------------------------------------------------
-
     if sort == "oldest":
         query = query.order_by(
             Assignment.created_at.asc()
@@ -303,10 +284,6 @@ def list_admin_assignments(
         query = query.order_by(
             Assignment.created_at.desc()
         )
-
-    # ---------------------------------------------------------
-    # Pagination
-    # ---------------------------------------------------------
 
     offset = (
         page - 1
@@ -555,18 +532,16 @@ def delete_assignment(
         assignment.documents
     )
 
-    storage_keys = []
+    storage_keys = set()
 
     for document in documents:
         if document.storage_key:
-            storage_keys.append(
+            storage_keys.add(
                 document.storage_key
             )
 
-        if (
-            document.signature_storage_key
-        ):
-            storage_keys.append(
+        if document.signature_storage_key:
+            storage_keys.add(
                 document.signature_storage_key
             )
 
@@ -644,10 +619,6 @@ def list_all_users(
                 )
             )
 
-    # ---------------------------------------------------------
-    # Total count
-    # ---------------------------------------------------------
-
     total_count = query.count()
 
     response.headers[
@@ -661,10 +632,6 @@ def list_all_users(
     response.headers[
         "X-Page-Size"
     ] = str(page_size)
-
-    # ---------------------------------------------------------
-    # Sorting + pagination
-    # ---------------------------------------------------------
 
     users = (
         query
@@ -732,6 +699,185 @@ def update_user_role(
     db.refresh(user)
 
     return user
+
+
+@router.delete(
+    "/users/{user_id}",
+    response_model=DeleteUserResponse,
+)
+def delete_user(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """
+    Permanently delete a user and everything belonging
+    to that user.
+
+    This removes:
+
+    - The user account
+    - Assignments assigned to the user
+    - Assignments created by the user
+    - Documents belonging to those assignments
+    - Original PDF files from storage
+    - Signature image files from storage
+
+    An admin cannot delete their own account.
+    """
+
+    # ---------------------------------------------------------
+    # Prevent self deletion
+    # ---------------------------------------------------------
+
+    if user_id == admin.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "You cannot delete your "
+                "own account."
+            ),
+        )
+
+    # ---------------------------------------------------------
+    # Find user
+    # ---------------------------------------------------------
+
+    user = (
+        db.query(User)
+        .filter(
+            User.id == user_id
+        )
+        .first()
+    )
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found.",
+        )
+
+    # ---------------------------------------------------------
+    # Find every assignment related to this user.
+    #
+    # A user can appear in either:
+    #
+    #   assigned_to_id
+    #   assigned_by_id
+    #
+    # Use a set of IDs so an assignment where the user is
+    # both creator and assignee is only processed once.
+    # ---------------------------------------------------------
+
+    assignments = (
+        db.query(Assignment)
+        .filter(
+            or_(
+                Assignment.assigned_to_id
+                == user.id,
+                Assignment.assigned_by_id
+                == user.id,
+            )
+        )
+        .all()
+    )
+
+    # ---------------------------------------------------------
+    # Collect every storage object before deleting anything.
+    #
+    # A set prevents attempting to delete the same storage
+    # object twice if two database records happen to reference
+    # the same key.
+    # ---------------------------------------------------------
+
+    storage_keys: set[str] = set()
+
+    for assignment in assignments:
+        for document in assignment.documents:
+
+            if document.storage_key:
+                storage_keys.add(
+                    document.storage_key
+                )
+
+            if document.signature_storage_key:
+                storage_keys.add(
+                    document.signature_storage_key
+                )
+
+    # ---------------------------------------------------------
+    # Delete storage first.
+    #
+    # If any storage deletion fails, don't touch the database.
+    # This prevents the database from saying the files are gone
+    # while the storage operation has failed.
+    # ---------------------------------------------------------
+
+    try:
+        for storage_key in storage_keys:
+            delete_file_from_storage(
+                storage_key
+            )
+
+    except Exception as e:
+        db.rollback()
+
+        print(
+            "[user storage deletion failed] "
+            f"{type(e).__name__}: {e}"
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                "The user could not be deleted "
+                "because one or more of their "
+                "files could not be removed "
+                "from storage."
+            ),
+        )
+
+    # ---------------------------------------------------------
+    # Delete assignments.
+    #
+    # Assignment.documents uses delete-orphan, so deleting an
+    # assignment also removes all of its Document records.
+    # ---------------------------------------------------------
+
+    try:
+        for assignment in assignments:
+            db.delete(assignment)
+
+        # -----------------------------------------------------
+        # Finally delete the user.
+        # -----------------------------------------------------
+
+        db.delete(user)
+
+        db.commit()
+
+    except Exception as e:
+        db.rollback()
+
+        print(
+            "[user database deletion failed] "
+            f"{type(e).__name__}: {e}"
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=(
+                "The user could not be deleted."
+            ),
+        )
+
+    return DeleteUserResponse(
+        detail=(
+            f"User '{user.name}' and all "
+            "associated data were deleted "
+            "successfully."
+        )
+    )
 
 
 @router.get(

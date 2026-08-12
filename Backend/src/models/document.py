@@ -11,20 +11,51 @@ from src.database import Base
 class Document(Base):
     __tablename__ = "documents"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
 
-    assignment_id = Column(UUID(as_uuid=True), ForeignKey("assignments.id"), nullable=False)
+    assignment_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("assignments.id"),
+        nullable=False,
+    )
 
-    filename = Column(String, nullable=False)  # original filename, shown in UI
-    storage_key = Column(String, nullable=False)  # PDF's path/key inside the bucket
+    filename = Column(
+        String,
+        nullable=False,
+    )  # original filename, shown in UI
 
-    is_signed = Column(Boolean, default=False, nullable=False)
-    signed_at = Column(DateTime, nullable=True)
+    storage_key = Column(
+        String,
+        nullable=False,
+    )  # PDF's path/key inside the bucket
 
-    # Drawn signature image, stored separately — not yet stamped onto the
-    # PDF itself. That's a follow-up step once this flow is working.
-    signature_storage_key = Column(String, nullable=True)
+    is_signed = Column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
 
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    signed_at = Column(
+        DateTime,
+        nullable=True,
+    )
 
-    assignment = relationship("Assignment", back_populates="documents")
+    # Drawn signature image stored separately.
+    signature_storage_key = Column(
+        String,
+        nullable=True,
+    )
+
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    assignment = relationship(
+        "Assignment",
+        back_populates="documents",
+    )
