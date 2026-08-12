@@ -23,7 +23,10 @@ class InviteUserRequest(BaseModel):
 
     @field_validator("role")
     @classmethod
-    def validate_role(cls, value: str) -> str:
+    def validate_role(
+        cls,
+        value: str,
+    ) -> str:
         if value not in {
             "admin",
             "assignee",
@@ -53,14 +56,44 @@ class AdminAssignmentListItem(BaseModel):
     signed_count: int
 
 
-class UpdateAssignmentAssigneeRequest(BaseModel):
+class UpdateAssignmentAssigneeRequest(
+    BaseModel
+):
     assigned_to_id: UUID
+
+
+class UpdateAssignmentTitleRequest(
+    BaseModel
+):
+    title: str = Field(
+        ...,
+        min_length=1,
+        max_length=120,
+    )
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(
+        cls,
+        value: str,
+    ) -> str:
+        value = value.strip()
+
+        if not value:
+            raise ValueError(
+                "Assignment title cannot be empty."
+            )
+
+        return value
 
 
 class AdminUserResponse(BaseModel):
     """
-    User information shown on the admin user-management screen.
-    Password/hash information is deliberately excluded.
+    User information shown on the admin
+    user-management screen.
+
+    Password/hash information is deliberately
+    excluded.
     """
 
     model_config = ConfigDict(
@@ -80,7 +113,10 @@ class UpdateUserRoleRequest(BaseModel):
 
     @field_validator("role")
     @classmethod
-    def validate_role(cls, value: str) -> str:
+    def validate_role(
+        cls,
+        value: str,
+    ) -> str:
         if value not in {
             "admin",
             "assignee",

@@ -12,10 +12,12 @@ from fastapi import (
     UploadFile,
     status,
 )
+
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from src.database import get_db
+
 from src.models.user import User
 from src.models.assignment import Assignment
 from src.models.document import Document
@@ -27,6 +29,7 @@ from src.schemas.admin import (
     InviteUserResponse,
     UpdateUserRoleRequest,
     UpdateAssignmentAssigneeRequest,
+    UpdateAssignmentTitleRequest,
 )
 
 from src.schemas.documents import (
@@ -35,6 +38,7 @@ from src.schemas.documents import (
 )
 
 from src.routes.auth import get_current_user
+
 from src.security import (
     hash_password,
     create_invite_token,
@@ -134,6 +138,7 @@ def invite_user(
             new_user.name,
             invite_link,
         )
+
     except Exception as e:
         print(
             f"[invite email failed] "
@@ -155,7 +160,9 @@ def invite_user(
 
 @router.get(
     "/assignments",
-    response_model=list[AdminAssignmentListItem],
+    response_model=list[
+        AdminAssignmentListItem
+    ],
 )
 def list_admin_assignments(
     search: str | None = Query(None),
@@ -277,6 +284,89 @@ def list_admin_assignments(
 
 
 @router.patch(
+    "/assignments/{assignment_id}/title",
+    response_model=AdminAssignmentListItem,
+)
+def rename_assignment(
+    assignment_id: UUID,
+    payload: UpdateAssignmentTitleRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """
+    Rename an existing assignment.
+
+    Only assignments created by the current
+    admin can be renamed.
+    """
+
+    assignment = (
+        db.query(Assignment)
+        .filter(
+            Assignment.id == assignment_id,
+            Assignment.assigned_by_id == admin.id,
+        )
+        .first()
+    )
+
+    if not assignment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Assignment not found.",
+        )
+
+    new_title = payload.title.strip()
+
+    if not new_title:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Assignment title cannot be empty.",
+        )
+
+    if len(new_title) > 120:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Assignment title must be "
+                "120 characters or fewer."
+            ),
+        )
+
+    assignment.title = new_title
+
+    db.commit()
+    db.refresh(assignment)
+
+    doc_count = len(
+        assignment.documents
+    )
+
+    signed_count = sum(
+        1
+        for document in assignment.documents
+        if document.is_signed
+    )
+
+    return AdminAssignmentListItem(
+        id=assignment.id,
+        title=assignment.title,
+        status=assignment.status,
+        created_at=assignment.created_at,
+        assigned_to_id=(
+            assignment.assigned_to_id
+        ),
+        assigned_to_name=(
+            assignment.assigned_to.name
+        ),
+        assigned_to_email=(
+            assignment.assigned_to.email
+        ),
+        document_count=doc_count,
+        signed_count=signed_count,
+    )
+
+
+@router.patch(
     "/assignments/{assignment_id}/assignee",
     response_model=AdminAssignmentListItem,
 )
@@ -289,10 +379,11 @@ def change_assignment_assignee(
     """
     Change the user assigned to an existing assignment.
 
-    Only assignments created by the current admin can be changed.
-    Only regular signers can be selected as the new assignee.
+    Only assignments created by the current admin
+    can be changed.
 
-    Existing documents and signing progress are preserved.
+    Existing documents and signing progress
+    are preserved.
     """
 
     assignment = (
@@ -381,11 +472,13 @@ def delete_assignment(
     """
     Permanently delete an assignment.
 
-    Only assignments created by the current admin can be deleted.
+    Only assignments created by the current
+    admin can be deleted.
 
-    Associated documents are deleted through the SQLAlchemy
-    relationship cascade, and their corresponding storage objects
-    are also removed.
+    Associated documents are deleted through
+    the SQLAlchemy relationship cascade, and
+    their corresponding storage objects are
+    also removed.
     """
 
     assignment = (
@@ -425,6 +518,7 @@ def delete_assignment(
             delete_file_from_storage(
                 storage_key
             )
+
     except Exception as e:
         db.rollback()
 
@@ -696,6 +790,7 @@ async def upload_documents(
             ],
             f"{settings.frontend_url}/dashboard",
         )
+
     except Exception as e:
         print(
             f"[assignment email failed] "

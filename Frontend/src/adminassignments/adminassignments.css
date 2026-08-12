@@ -354,59 +354,84 @@
 .adminassignments-action-button {
   width: 34px;
   height: 34px;
-  border: 1px solid #e2e6ee;
   border-radius: 8px;
+  border: 1px solid #e2e6ee;
   background: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  font-family: inherit;
   transition:
     background 0.15s ease,
     border-color 0.15s ease,
     color 0.15s ease;
 }
 
-.adminassignments-action-button.change {
+.adminassignments-action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Rename */
+
+.adminassignments-action-button.rename {
   color: #2f5ef5;
 }
 
-.adminassignments-action-button.change:hover {
+.adminassignments-action-button.rename:hover:not(:disabled) {
   background: #eaf0fb;
   border-color: #2f5ef5;
 }
+
+/* Change assignee */
+
+.adminassignments-action-button.change {
+  color: #5f6b7a;
+}
+
+.adminassignments-action-button.change:hover:not(:disabled) {
+  background: #f1f3f7;
+  border-color: #cbd1dc;
+  color: #14213d;
+}
+
+/* Delete */
 
 .adminassignments-action-button.delete {
   color: #b3261e;
 }
 
-.adminassignments-action-button.delete:hover {
+.adminassignments-action-button.delete:hover:not(:disabled) {
   background: #fdecec;
-  border-color: #b3261e;
+  border-color: #efb5b1;
 }
+
+/* Save */
 
 .adminassignments-action-button.save {
   color: #1b7a3d;
 }
 
-.adminassignments-action-button.save:hover {
+.adminassignments-action-button.save:hover:not(:disabled) {
   background: #eafaf0;
-  border-color: #1b7a3d;
+  border-color: #8fd3a8;
 }
+
+/* Cancel */
 
 .adminassignments-action-button.cancel {
   color: #6b7688;
 }
 
-.adminassignments-action-button.cancel:hover {
+.adminassignments-action-button.cancel:hover:not(:disabled) {
   background: #f1f3f7;
-  border-color: #8a93a6;
+  border-color: #cbd1dc;
 }
 
-.adminassignments-action-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+/* ---------------------------------------------------------
+   Assignee editor
+--------------------------------------------------------- */
 
 .adminassignments-assignee-editor {
   display: flex;
@@ -430,6 +455,52 @@
 .adminassignments-assignee-select:focus {
   border-color: #2f5ef5;
   box-shadow: 0 0 0 2px rgba(47, 94, 245, 0.08);
+}
+
+/* ---------------------------------------------------------
+   Rename assignment
+--------------------------------------------------------- */
+
+.adminassignments-rename-editor {
+  position: relative;
+  width: 100%;
+  max-width: 430px;
+}
+
+.adminassignments-rename-input {
+  width: 100%;
+  height: 38px;
+  box-sizing: border-box;
+  border: 1px solid #2f5ef5;
+  border-radius: 8px;
+  padding: 0 58px 0 11px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  color: #14213d;
+  background: #ffffff;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(47, 94, 245, 0.08);
+}
+
+.adminassignments-rename-input:focus {
+  border-color: #2f5ef5;
+}
+
+.adminassignments-rename-input::placeholder {
+  color: #9aa4b8;
+}
+
+.adminassignments-rename-count {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: #8a93a6;
+  pointer-events: none;
+  background: #ffffff;
+  padding-left: 4px;
 }
 
 /* ---------------------------------------------------------
@@ -484,5 +555,15 @@
   .adminassignments-assignee-select {
     flex: 1;
     max-width: none;
+  }
+
+  .adminassignments-rename-editor {
+    max-width: none;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .adminassignments-rename-input {
+    font-size: 14px;
   }
 }
