@@ -356,11 +356,11 @@ function Documents() {
             aria-label="Sort documents"
           >
             <option value="newest">
-              Newest first
+              Newest First
             </option>
 
             <option value="oldest">
-              Oldest first
+              Oldest First
             </option>
           </select>
 

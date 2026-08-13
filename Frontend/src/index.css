@@ -17,19 +17,40 @@ body,
 
 html {
   background-color: #eaf0fb;
+  background-image:
+    linear-gradient(
+      rgba(234, 240, 251, 0.2),
+      rgba(234, 240, 251, 0.2)
+    ),
+    url("./assets/login/background-desktop.png");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
   overscroll-behavior-y: none;
 }
 
 body {
   min-height: 100vh;
   min-height: 100dvh;
+
   background-color: #eaf0fb;
+  background-image:
+    linear-gradient(
+      rgba(234, 240, 251, 0.2),
+      rgba(234, 240, 251, 0.2)
+    ),
+    url("./assets/login/background-desktop.png");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+
   overscroll-behavior-y: none;
 }
 
 #root {
   min-height: 100vh;
   min-height: 100dvh;
+
   background-color: #eaf0fb;
 }
 
@@ -92,7 +113,25 @@ body {
   background-size: cover;
 }
 
+/* =========================================================
+   Mobile background
+   ========================================================= */
+
 @media (max-width: 768px) {
+  html,
+  body {
+    background-image:
+      linear-gradient(
+        rgba(234, 240, 251, 0.24),
+        rgba(234, 240, 251, 0.24)
+      ),
+      url("./assets/login/background-mobile.png");
+
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+  }
+
   .app-background {
     background-image:
       linear-gradient(
@@ -100,12 +139,15 @@ body {
         rgba(234, 240, 251, 0.24)
       ),
       url("./assets/login/background-mobile.png");
+
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
   }
 }
 
 /* =========================================================
-   Safe-area support for phones with rounded corners /
-   notches / home indicators
+   Safe-area support
    ========================================================= */
 
 @supports (padding: env(safe-area-inset-top)) {

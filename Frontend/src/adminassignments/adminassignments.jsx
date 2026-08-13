@@ -717,11 +717,11 @@ function AdminAssignments() {
             aria-label="Sort assignments"
           >
             <option value="newest">
-              Newest first
+              Newest First
             </option>
 
             <option value="oldest">
-              Oldest first
+              Oldest First
             </option>
           </select>
 
