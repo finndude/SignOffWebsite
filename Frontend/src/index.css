@@ -3,7 +3,7 @@
 }
 
 /* =========================================================
-   Global viewport / page setup
+   Global page setup
    ========================================================= */
 
 html,
@@ -16,47 +16,20 @@ body,
 }
 
 html {
-  min-height: 100%;
   background-color: #eaf0fb;
 }
 
 body {
   min-height: 100vh;
   min-height: 100dvh;
-  background-color: transparent;
-  overscroll-behavior-y: none;
-}
 
-#root {
-  position: relative;
-  min-height: 100vh;
-  min-height: 100dvh;
-  background: transparent;
-}
-
-/* =========================================================
-   Global fixed background
-   ========================================================= */
-
-/*
- * This sits behind the entire application and covers the
- * actual browser viewport.
- *
- * This is important on mobile because Chrome/Safari's
- * address/search bar changes the visible viewport while
- * scrolling.
- */
-
-#root::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-
-  width: 100%;
-  height: 100%;
-
+  /*
+   * Keep the background on the actual page rather than
+   * using a negative z-index pseudo-element.
+   *
+   * This is much more reliable on iOS Safari.
+   */
   background-color: #eaf0fb;
-
   background-image:
     linear-gradient(
       rgba(234, 240, 251, 0.24),
@@ -64,16 +37,26 @@ body {
     ),
     url("./assets/login/background-desktop.png");
 
-  background-position: center;
+  background-position: center top;
   background-repeat: no-repeat;
   background-size: cover;
+  background-attachment: fixed;
 
-  z-index: -1;
-  pointer-events: none;
+  /*
+   * Prevent Safari from showing a different colour when
+   * the user pulls beyond the page.
+   */
+  overscroll-behavior-y: none;
+}
+
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: transparent;
 }
 
 /* =========================================================
-   Theme variables
+   Root variables
    ========================================================= */
 
 :root {
@@ -117,12 +100,15 @@ body {
    ========================================================= */
 
 .app-background {
-  position: relative;
-
   width: 100%;
   min-height: 100vh;
   min-height: 100dvh;
 
+  /*
+   * The background is now supplied by body.
+   * This element must remain transparent so the image
+   * continues behind the entire application.
+   */
   background: transparent;
 }
 
@@ -135,7 +121,9 @@ body {
     background-color: #eaf0fb;
   }
 
-  #root::before {
+  body {
+    background-color: #eaf0fb;
+
     background-image:
       linear-gradient(
         rgba(234, 240, 251, 0.24),
@@ -144,17 +132,23 @@ body {
       url("./assets/login/background-mobile.png");
 
     /*
-     * Use the entire width of the phone and allow the
-     * extended image to determine its natural height.
+     * Your mobile image is now tall, so display its full
+     * width and allow the height to follow naturally.
      */
-    background-position: top center;
+    background-position: center top;
     background-repeat: no-repeat;
     background-size: 100% auto;
+
+    /*
+     * Keep the image attached to the viewport while the
+     * application content scrolls.
+     */
+    background-attachment: fixed;
   }
 }
 
 /* =========================================================
-   Safe-area support
+   Safe area support for modern phones
    ========================================================= */
 
 @supports (padding: env(safe-area-inset-top)) {
