@@ -12,18 +12,14 @@ body,
 }
 
 html {
-  background-color: #eaf0fb;
+  background-color: #F5F6FB;
 }
 
 body {
   min-height: 100vh;
   min-height: 100dvh;
 
-  /*
-   * The background belongs to the entire page rather than
-   * being fixed to the browser viewport.
-   */
-  background-color: #eaf0fb;
+  background-color: #F5F6FB;
 
   background-image:
     linear-gradient(
@@ -34,15 +30,7 @@ body {
 
   background-position: center top;
   background-repeat: no-repeat;
-
-  /*
-   * Fill the entire document.
-   */
   background-size: 100% 100%;
-
-  /*
-   * Allow the background to scroll naturally with the page.
-   */
   background-attachment: scroll;
 
   overscroll-behavior-y: none;
@@ -103,9 +91,6 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
 
-  /*
-   * The body supplies the background.
-   */
   background: transparent;
 }
 
@@ -115,11 +100,11 @@ body {
 
 @media (max-width: 768px) {
   html {
-    background-color: #eaf0fb;
+    background-color: #F5F6FB;
   }
 
   body {
-    background-color: #eaf0fb;
+    background-color: #F5F6FB;
 
     background-image:
       linear-gradient(
@@ -130,20 +115,7 @@ body {
 
     background-position: center top;
     background-repeat: no-repeat;
-
-    /*
-     * Stretch the mobile background across the entire
-     * document width and height.
-     *
-     * This prevents grey space appearing underneath
-     * the application when the page is taller than
-     * the viewport.
-     */
     background-size: 100% 100%;
-
-    /*
-     * The image scrolls with the page.
-     */
     background-attachment: scroll;
   }
 
