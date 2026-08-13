@@ -12,14 +12,14 @@ body,
 }
 
 html {
-  background-color: #F5F6FB;
+  background: #eaf0fb;
 }
 
 body {
   min-height: 100vh;
   min-height: 100dvh;
 
-  background-color: #F5F6FB;
+  background-color: #eaf0fb;
 
   background-image:
     linear-gradient(
@@ -28,10 +28,9 @@ body {
     ),
     url("./assets/login/background-desktop.png");
 
-  background-position: center top;
+  background-position: center center;
   background-repeat: no-repeat;
-  background-size: 100% 100%;
-  background-attachment: scroll;
+  background-size: cover;
 
   overscroll-behavior-y: none;
 }
@@ -41,10 +40,6 @@ body {
   min-height: 100dvh;
   background: transparent;
 }
-
-/* =========================================================
-   Root variables
-   ========================================================= */
 
 :root {
   --text: #6b6375;
@@ -82,15 +77,10 @@ body {
   }
 }
 
-/* =========================================================
-   Application background
-   ========================================================= */
-
 .app-background {
   width: 100%;
   min-height: 100vh;
   min-height: 100dvh;
-
   background: transparent;
 }
 
@@ -100,11 +90,11 @@ body {
 
 @media (max-width: 768px) {
   html {
-    background-color: #F5F6FB;
+    background: #eaf0fb;
   }
 
   body {
-    background-color: #F5F6FB;
+    background-color: #eaf0fb;
 
     background-image:
       linear-gradient(
@@ -113,10 +103,23 @@ body {
       ),
       url("./assets/login/background-mobile.png");
 
-    background-position: center top;
+    /*
+     * IMPORTANT:
+     *
+     * "cover" forces the image to fill the entire viewport.
+     * It will crop/stretch the image rather than leaving
+     * the grey background visible.
+     */
+    background-size: cover;
+
+    background-position: center center;
     background-repeat: no-repeat;
-    background-size: 100% 100%;
-    background-attachment: scroll;
+
+    /*
+     * Keep the background attached to the viewport while
+     * the page scrolls.
+     */
+    background-attachment: fixed;
   }
 
   #root {
@@ -133,7 +136,7 @@ body {
 }
 
 /* =========================================================
-   Safe area support
+   Safe area
    ========================================================= */
 
 @supports (padding: env(safe-area-inset-top)) {
