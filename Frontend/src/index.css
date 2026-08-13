@@ -12,13 +12,17 @@ body,
 }
 
 html {
-  background: #eaf0fb;
+  background-color: #eaf0fb;
 }
 
 body {
   min-height: 100vh;
   min-height: 100dvh;
 
+  /*
+   * The background belongs to the entire page rather than
+   * being fixed to the browser viewport.
+   */
   background-color: #eaf0fb;
 
   background-image:
@@ -28,9 +32,18 @@ body {
     ),
     url("./assets/login/background-desktop.png");
 
-  background-position: center center;
+  background-position: center top;
   background-repeat: no-repeat;
-  background-size: cover;
+
+  /*
+   * Fill the entire document.
+   */
+  background-size: 100% 100%;
+
+  /*
+   * Allow the background to scroll naturally with the page.
+   */
+  background-attachment: scroll;
 
   overscroll-behavior-y: none;
 }
@@ -40,6 +53,10 @@ body {
   min-height: 100dvh;
   background: transparent;
 }
+
+/* =========================================================
+   Root variables
+   ========================================================= */
 
 :root {
   --text: #6b6375;
@@ -77,10 +94,18 @@ body {
   }
 }
 
+/* =========================================================
+   Application background
+   ========================================================= */
+
 .app-background {
   width: 100%;
   min-height: 100vh;
   min-height: 100dvh;
+
+  /*
+   * The body supplies the background.
+   */
   background: transparent;
 }
 
@@ -90,7 +115,7 @@ body {
 
 @media (max-width: 768px) {
   html {
-    background: #eaf0fb;
+    background-color: #eaf0fb;
   }
 
   body {
@@ -103,23 +128,23 @@ body {
       ),
       url("./assets/login/background-mobile.png");
 
-    /*
-     * IMPORTANT:
-     *
-     * "cover" forces the image to fill the entire viewport.
-     * It will crop/stretch the image rather than leaving
-     * the grey background visible.
-     */
-    background-size: cover;
-
-    background-position: center center;
+    background-position: center top;
     background-repeat: no-repeat;
 
     /*
-     * Keep the background attached to the viewport while
-     * the page scrolls.
+     * Stretch the mobile background across the entire
+     * document width and height.
+     *
+     * This prevents grey space appearing underneath
+     * the application when the page is taller than
+     * the viewport.
      */
-    background-attachment: fixed;
+    background-size: 100% 100%;
+
+    /*
+     * The image scrolls with the page.
+     */
+    background-attachment: scroll;
   }
 
   #root {
@@ -136,7 +161,7 @@ body {
 }
 
 /* =========================================================
-   Safe area
+   Safe area support
    ========================================================= */
 
 @supports (padding: env(safe-area-inset-top)) {
