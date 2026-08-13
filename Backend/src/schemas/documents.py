@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class AssignmentListItem(BaseModel):
@@ -13,8 +13,7 @@ class AssignmentListItem(BaseModel):
     document_count: int
     signed_count: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AssignmentListResponse(BaseModel):
@@ -26,7 +25,7 @@ class AssignmentListResponse(BaseModel):
 
 
 # ---------------------------------------------------------
-# Keep the rest of your existing documents schemas below.
+# User schemas
 # ---------------------------------------------------------
 
 
@@ -35,8 +34,25 @@ class UserSummary(BaseModel):
     name: str
     email: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ---------------------------------------------------------
+# Document schemas
+# ---------------------------------------------------------
+
+
+class DocumentResponse(BaseModel):
+    id: UUID
+    assignment_id: UUID
+    filename: str
+    storage_key: str
+    is_signed: bool
+    signed_at: datetime | None
+    signature_storage_key: str | None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UploadDocumentsResponse(BaseModel):
@@ -47,6 +63,11 @@ class DocumentDownloadResponse(BaseModel):
     download_url: str
 
 
+# ---------------------------------------------------------
+# Assignment detail
+# ---------------------------------------------------------
+
+
 class AssignmentDetailResponse(BaseModel):
     id: UUID
     title: str
@@ -55,15 +76,19 @@ class AssignmentDetailResponse(BaseModel):
     assigned_by_name: str
     assigned_by_id: UUID
     current_user_id: UUID
-    documents: list
+    documents: list[DocumentResponse]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ---------------------------------------------------------
+# Signing
+# ---------------------------------------------------------
 
 
 class SignDocumentResponse(BaseModel):
     detail: str
-    document: object
+    document: DocumentResponse
 
 
 class ConfirmAssignmentResponse(BaseModel):
